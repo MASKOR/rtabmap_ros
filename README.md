@@ -1,7 +1,11 @@
-rtabmap_ros
+rtabmap_ros MODIFIED
 ===========
 
-RTAB-Map's ROS package.
+!!!MODIFIED!!! RTAB-Map's ROS package.
+
+ORIGINAL is on: http://introlab.github.io/rtabmap !
+
+Modification to generate thermal colored 3D maps.
 
 For more information, demos and tutorials about this package, visit the [rtabmap_ros](http://wiki.ros.org/rtabmap_ros) page on the ROS wiki.
 

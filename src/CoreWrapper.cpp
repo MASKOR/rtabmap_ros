@@ -174,14 +174,6 @@ CoreWrapper::CoreWrapper(bool deleteDbOnStart) :
 
 	configPath_ = uReplaceChar(configPath_, '~', UDirectory::homeDir());
 	databasePath_ = uReplaceChar(databasePath_, '~', UDirectory::homeDir());
-	if(configPath_.size() && configPath_.at(0) != '/')
-	{
-		configPath_ = UDirectory::currentDir(true) + configPath_;
-	}
-	if(databasePath_.size() && databasePath_.at(0) != '/')
-	{
-		databasePath_ = UDirectory::currentDir(true) + databasePath_;
-	}
 
 	// load parameters
 	parameters_ = loadParameters(configPath_);
@@ -324,14 +316,7 @@ CoreWrapper::CoreWrapper(bool deleteDbOnStart) :
 		}
 	}
 
-	if(databasePath_.size())
-	{
-		ROS_INFO("rtabmap: Using database from \"%s\".", databasePath_.c_str());
-	}
-	else
-	{
-		ROS_INFO("rtabmap: database_path parameter not set, the map will not be saved.");
-	}
+	ROS_INFO("rtabmap: Using database from \"%s\".", databasePath_.c_str());
 
 	// Init RTAB-Map
 	rtabmap_.init(parameters_, databasePath_);
@@ -672,8 +657,7 @@ void CoreWrapper::commonDepthCallback(
 		const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
 		const sensor_msgs::LaserScanConstPtr& scanMsg)
 {
-	if(!(imageMsg->encoding.compare(sensor_msgs::image_encodings::TYPE_8UC1) == 0 ||
-			imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) ==0 ||
+	if(!(imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) ==0 ||
 			imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO16) ==0 ||
 			imageMsg->encoding.compare(sensor_msgs::image_encodings::BGR8) == 0 ||
 			imageMsg->encoding.compare(sensor_msgs::image_encodings::RGB8) == 0) ||
@@ -754,11 +738,7 @@ void CoreWrapper::commonDepthCallback(
 	}
 
 	cv_bridge::CvImageConstPtr ptrImage;
-	if(imageMsg, imageMsg->encoding.compare(sensor_msgs::image_encodings::TYPE_8UC1)==0)
-	{
-		ptrImage = cv_bridge::toCvShare(imageMsg);
-	}
-	else if(imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) == 0 ||
+	if(imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) == 0 ||
 	   imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO16) == 0)
 	{
 		ptrImage = cv_bridge::toCvShare(imageMsg, "mono8");
@@ -1092,7 +1072,7 @@ void CoreWrapper::process(
 			}
 		}
 
-		SensorData data(scan,
+        SensorData data(scan,
 				scanMaxPts,
 				image.clone(),
 				imageB,
@@ -2214,6 +2194,7 @@ void CoreWrapper::setupCallbacks(
 
 		if(odomFrameId_.empty())
 		{
+                        ROS_INFO("With odom msg...");
 			odomSub_.subscribe(nh, "odom", 1);
 			if(subscribeLaserScan)
 			{
@@ -2247,6 +2228,7 @@ void CoreWrapper::setupCallbacks(
 		else
 		{
 			// use odom from TF, so subscribe to sensors only
+                        ROS_INFO("With odom from TF...");
 			if(subscribeLaserScan)
 			{
 				scanSub_.subscribe(nh, "scan", 1);

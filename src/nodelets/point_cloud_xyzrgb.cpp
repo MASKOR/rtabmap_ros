@@ -103,37 +103,73 @@ private:
 		ROS_INFO("Approximate time sync = %s", approxSync?"true":"false");
 
 		cloudPub_ = nh.advertise<sensor_msgs::PointCloud2>("cloud", 1);
-
+                
 		if(approxSync)
 		{
+                  
+                  //ROS_INFO("------------------------------------------------- IF ---------------------------------------");
+                  //std::cout << "------------------------------------------------- IF ---------------------------------------" << std::endl;
+                  
+                  //Original
+                  //approxSyncDepth_ = new message_filters::Synchronizer<MyApproxSyncDepthPolicy>(MyApproxSyncDepthPolicy(queueSize), imageSub_, imageDepthSub_, cameraInfoSub_);
+                  //approxSyncDepth_->registerCallback(boost::bind(&PointCloudXYZRGB::depthCallback, this, _1, _2, _3));
 
-			approxSyncDepth_ = new message_filters::Synchronizer<MyApproxSyncDepthPolicy>(MyApproxSyncDepthPolicy(queueSize), imageSub_, imageDepthSub_, cameraInfoSub_);
-			approxSyncDepth_->registerCallback(boost::bind(&PointCloudXYZRGB::depthCallback, this, _1, _2, _3));
+                  //Added thermalSub_
+                  //approxSyncDepth_ = new message_filters::Synchronizer<MyApproxSyncDepthPolicy2>(MyApproxSyncDepthPolicy2(queueSize), imageSub_, imageDepthSub_, cameraInfoSub_, thermalSub_);
+                  //approxSyncDepth_->registerCallback(boost::bind(&PointCloudXYZRGB::depthCallback, this, _1, _2, _3, _4));
 
-			approxSyncStereo_ = new message_filters::Synchronizer<MyApproxSyncStereoPolicy>(MyApproxSyncStereoPolicy(queueSize), imageLeft_, imageRight_, cameraInfoLeft_, cameraInfoRight_);
-			approxSyncStereo_->registerCallback(boost::bind(&PointCloudXYZRGB::stereoCallback, this, _1, _2, _3, _4));
+                  approxSyncStereo_ = new message_filters::Synchronizer<MyApproxSyncStereoPolicy>(MyApproxSyncStereoPolicy(queueSize), imageLeft_, imageRight_, cameraInfoLeft_, cameraInfoRight_);
+                  approxSyncStereo_->registerCallback(boost::bind(&PointCloudXYZRGB::stereoCallback, this, _1, _2, _3, _4));
+
+                  //My Callback
+                  //approxSyncTest_ = new message_filters::Synchronizer<MyApproxSyncTestPolicy>(MyApproxSyncTestPolicy(queueSize), imageLeft_, imageRight_, imageTest_);
+                  approxSyncTest_ = new message_filters::Synchronizer<MyApproxSyncTestPolicy>(MyApproxSyncTestPolicy(queueSize), imageSub_, imageDepthSub_, cameraInfoSub_, thermalSub_);
+                  approxSyncTest_->registerCallback(boost::bind(&PointCloudXYZRGB::myTestCallback, this, _1, _2, _3, _4));
 		}
 		else
 		{
-			exactSyncDepth_ = new message_filters::Synchronizer<MyExactSyncDepthPolicy>(MyExactSyncDepthPolicy(queueSize), imageSub_, imageDepthSub_, cameraInfoSub_);
-			exactSyncDepth_->registerCallback(boost::bind(&PointCloudXYZRGB::depthCallback, this, _1, _2, _3));
 
-			exactSyncStereo_ = new message_filters::Synchronizer<MyExactSyncStereoPolicy>(MyExactSyncStereoPolicy(queueSize), imageLeft_, imageRight_, cameraInfoLeft_, cameraInfoRight_);
-			exactSyncStereo_->registerCallback(boost::bind(&PointCloudXYZRGB::stereoCallback, this, _1, _2, _3, _4));
+                  ROS_INFO("--------------------------------------- ELSE ---------------------------------------");
+                  //std::cout << "--------------------------------------- ELSE ---------------------------------------" << std::endl;
+                  
+                  //Original
+                  exactSyncDepth_ = new message_filters::Synchronizer<MyExactSyncDepthPolicy>(MyExactSyncDepthPolicy(queueSize), imageSub_, imageDepthSub_, cameraInfoSub_);
+                  exactSyncDepth_->registerCallback(boost::bind(&PointCloudXYZRGB::depthCallback, this, _1, _2, _3));
+
+                  //Added thermalSub_
+                  //exactSyncDepth_ = new message_filters::Synchronizer<MyExactSyncDepthPolicy>(MyExactSyncDepthPolicy(queueSize), imageSub_, imageDepthSub_, cameraInfoSub_, thermalSub_);
+                  //exactSyncDepth_->registerCallback(boost::bind(&PointCloudXYZRGB::depthCallback, this, _1, _2, _3, _4));
+
+                  exactSyncStereo_ = new message_filters::Synchronizer<MyExactSyncStereoPolicy>(MyExactSyncStereoPolicy(queueSize), imageLeft_, imageRight_, cameraInfoLeft_, cameraInfoRight_);
+                  exactSyncStereo_->registerCallback(boost::bind(&PointCloudXYZRGB::stereoCallback, this, _1, _2, _3, _4));
+
+                  //My Callback
 		}
 
 		ros::NodeHandle rgb_nh(nh, "rgb");
 		ros::NodeHandle depth_nh(nh, "depth");
 		ros::NodeHandle rgb_pnh(pnh, "rgb");
 		ros::NodeHandle depth_pnh(pnh, "depth");
+
+                //Added thermal
+                ros::NodeHandle thermal_nh(nh, "thermal");
+                // ros::NodeHandle thermal_pnh(pnh, "thermal");
+                
 		image_transport::ImageTransport rgb_it(rgb_nh);
 		image_transport::ImageTransport depth_it(depth_nh);
 		image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
 		image_transport::TransportHints hintsDepth("raw", ros::TransportHints(), depth_pnh);
 
+                //Added thermal
+                image_transport::ImageTransport thermal_it(thermal_nh);
+                //image_transport::TransportHints hintsThermal("raw", ros::TransportHints(), thermal_pnh);
+
 		imageSub_.subscribe(rgb_it, rgb_nh.resolveName("image"), 1, hintsRgb);
 		imageDepthSub_.subscribe(depth_it, depth_nh.resolveName("image"), 1, hintsDepth);
 		cameraInfoSub_.subscribe(rgb_nh, "camera_info", 1);
+
+                //Added thermal
+                thermalSub_.subscribe(thermal_it,"/flir_camera/mapped/image", 1);
 
 
 		ros::NodeHandle left_nh(nh, "left");
@@ -151,13 +187,78 @@ private:
 		cameraInfoRight_.subscribe(right_nh, "camera_info", 1);
 	}
 
+        // void myTestCallback(const sensor_msgs::ImageConstPtr& imageLeft,
+        //                     const sensor_msgs::ImageConstPtr& imageRight,
+        //                     const sensor_msgs::ImageConstPtr& imageTest){
+        // }
+
+        void myTestCallback(const sensor_msgs::ImageConstPtr& image,
+                            const sensor_msgs::ImageConstPtr& imageDepth,
+                            const sensor_msgs::CameraInfoConstPtr& cameraInfo,
+                            const sensor_msgs::ImageConstPtr& imageThermal){
+          
+          if(!(image->encoding.compare(sensor_msgs::image_encodings::MONO8) ==0 ||
+               image->encoding.compare(sensor_msgs::image_encodings::MONO16) ==0 ||
+               image->encoding.compare(sensor_msgs::image_encodings::BGR8) == 0 ||
+               image->encoding.compare(sensor_msgs::image_encodings::RGB8) == 0) &&
+             !(imageDepth->encoding.compare(sensor_msgs::image_encodings::TYPE_16UC1)==0 ||
+               imageDepth->encoding.compare(sensor_msgs::image_encodings::TYPE_32FC1)==0 ||
+               imageDepth->encoding.compare(sensor_msgs::image_encodings::MONO16)==0))
+          {
+            ROS_ERROR("Input type must be image=mono8,mono16,rgb8,bgr8 and image_depth=32FC1,16UC1,mono16");
+            return;
+          }
+          
+          if(cloudPub_.getNumSubscribers())
+
+          {
+            cv_bridge::CvImageConstPtr imagePtr = cv_bridge::toCvShare(image, "bgr8");
+            cv_bridge::CvImageConstPtr imageDepthPtr = cv_bridge::toCvShare(imageDepth);
+            cv_bridge::CvImageConstPtr imageThermalPtr = cv_bridge::toCvShare(imageThermal, "mono8");
+
+            std::cout << "------------------------- IT'S ME! myTestCallback point_cloud_xyzrgb.cpp --------------------------" << std::endl;
+            
+//            cv::Mat rgb_image, thermal_Image;
+//            rgb_image = imagePtr->image.clone();
+
+//            thermal_Image = imageThermalPtr->image.clone();
+
+//            cv::imshow("Thermal", thermal_Image);
+//            cv::imshow("RGB", rgb_image);
+//            cv::waitKey(30);
+            
+            
+             image_geometry::PinholeCameraModel model;
+             model.fromCameraInfo(*cameraInfo);
+             float fx = model.fx();
+             float fy = model.fy();
+             float cx = model.cx();
+             float cy = model.cy();
+            
+             pcl::PointCloud<pcl::PointXYZRGB>::Ptr pclCloud;
+             pclCloud = rtabmap::util3d::cloudFromDepthRGB(
+                    imageThermalPtr->image,
+                    imageDepthPtr->image,
+                    cx,
+                    cy,
+                    fx,
+                    fy,
+                    decimation_);
+            
+            
+             processAndPublish(pclCloud, imagePtr->header);
+            }
+        }
+
 	void depthCallback(
 			  const sensor_msgs::ImageConstPtr& image,
 			  const sensor_msgs::ImageConstPtr& imageDepth,
-			  const sensor_msgs::CameraInfoConstPtr& cameraInfo)
+			  const sensor_msgs::CameraInfoConstPtr& cameraInfo/*,
+                                                                             const sensor_msgs::ImageConstPtr& imageThermal*/)
 	{
-		if(!(image->encoding.compare(sensor_msgs::image_encodings::TYPE_8UC1) ==0 ||
-			image->encoding.compare(sensor_msgs::image_encodings::MONO8) ==0 ||
+          std::cout << "------------------------- IT'S ME! depthCallback in point_cloud_xyzrgb.cpp --------------------------" << std::endl;
+          
+                if(!(image->encoding.compare(sensor_msgs::image_encodings::MONO8) ==0 ||
 			image->encoding.compare(sensor_msgs::image_encodings::MONO16) ==0 ||
 			image->encoding.compare(sensor_msgs::image_encodings::BGR8) == 0 ||
 			image->encoding.compare(sensor_msgs::image_encodings::RGB8) == 0) &&
@@ -171,8 +272,16 @@ private:
 
 		if(cloudPub_.getNumSubscribers())
 		{
-			cv_bridge::CvImageConstPtr imagePtr = cv_bridge::toCvShare(image, image->encoding.compare(sensor_msgs::image_encodings::TYPE_8UC1)==0?"":"mono8");
+            cv_bridge::CvImageConstPtr imagePtr = cv_bridge::toCvShare(image, "bgr8");
 			cv_bridge::CvImageConstPtr imageDepthPtr = cv_bridge::toCvShare(imageDepth);
+                        //cv_bridge::CvImageConstPtr imageThermalPtr = cv_bridge::toCvShare(imageThermal, "mono8");
+
+                        
+                        // cv::Mat thermal_image; 
+                        // thermal_image = imageThermalPtr->image.clone();
+
+                        // imshow("thermal image", thermal_image);
+                        // cv::waitKey(30);
 
 			image_geometry::PinholeCameraModel model;
 			model.fromCameraInfo(*cameraInfo);
@@ -281,34 +390,57 @@ private:
 
 private:
 
-	double maxDepth_;
-	double voxelSize_;
-	int decimation_;
-	double noiseFilterRadius_;
-	int noiseFilterMinNeighbors_;
+  double maxDepth_;
+  double voxelSize_;
+  int decimation_;
+  double noiseFilterRadius_;
+  int noiseFilterMinNeighbors_;
 
-	ros::Publisher cloudPub_;
+  ros::Publisher cloudPub_;
 
-	image_transport::SubscriberFilter imageSub_;
-	image_transport::SubscriberFilter imageDepthSub_;
-	message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoSub_;
+  image_transport::SubscriberFilter imageSub_;
+  image_transport::SubscriberFilter imageDepthSub_;
+  message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoSub_;
 
-	image_transport::SubscriberFilter imageLeft_;
-	image_transport::SubscriberFilter imageRight_;
-	message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoLeft_;
-	message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoRight_;
+  //Added thermal
+  image_transport::SubscriberFilter thermalSub_;  
 
-	typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyApproxSyncDepthPolicy;
-	message_filters::Synchronizer<MyApproxSyncDepthPolicy> * approxSyncDepth_;
+  image_transport::SubscriberFilter imageLeft_;
+  image_transport::SubscriberFilter imageRight_;
+  message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoLeft_;
+  message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoRight_;
 
-	typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> MyApproxSyncStereoPolicy;
-	message_filters::Synchronizer<MyApproxSyncStereoPolicy> * approxSyncStereo_;
+  //MyTest
+  image_transport::SubscriberFilter imageTest_;  
 
-	typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyExactSyncDepthPolicy;
-	message_filters::Synchronizer<MyExactSyncDepthPolicy> * exactSyncDepth_;
+  //original 
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyApproxSyncDepthPolicy;
+  
+  //Added thermal  
+  //typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::Image> MyApproxSyncDepthPolicy;
+  
+  //original
+  message_filters::Synchronizer<MyApproxSyncDepthPolicy> * approxSyncDepth_;
 
-	typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> MyExactSyncStereoPolicy;
-	message_filters::Synchronizer<MyExactSyncStereoPolicy> * exactSyncStereo_;
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> MyApproxSyncStereoPolicy;
+  message_filters::Synchronizer<MyApproxSyncStereoPolicy> * approxSyncStereo_;
+
+  //MyTest
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::Image> MyApproxSyncTestPolicy;
+  //typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyApproxSyncTestPolicy;
+  message_filters::Synchronizer<MyApproxSyncTestPolicy> * approxSyncTest_;
+
+  //original
+  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyExactSyncDepthPolicy;
+  
+  //Added thermal
+  //typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::Image> MyExactSyncDepthPolicy;
+  
+  message_filters::Synchronizer<MyExactSyncDepthPolicy> * exactSyncDepth_;
+
+  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> MyExactSyncStereoPolicy;
+  message_filters::Synchronizer<MyExactSyncStereoPolicy> * exactSyncStereo_;
+  
 };
 
 PLUGINLIB_EXPORT_CLASS(rtabmap_ros::PointCloudXYZRGB, nodelet::Nodelet);

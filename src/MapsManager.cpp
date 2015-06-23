@@ -221,7 +221,7 @@ std::map<int, rtabmap::Transform> MapsManager::updateMapCaches(
 								else
 								{
                                                                   //ROS_INFO("------------------------------------------------- MapsManager.cpp -------------------------------------------------");
-                                                                  //std::cout << "------------------------------------------------- Mapsmanager.cpp -------------------------------------------------" << std::endl;
+                                    std::cout << "------------------------------------------------- Mapsmanager.cpp -------------------------------------------------" << std::endl;
 									cloudRGB = util3d::cloudFromDepthRGB(image, depth, cx, cy, fx, fy, cloudDecimation_);
 								}
 

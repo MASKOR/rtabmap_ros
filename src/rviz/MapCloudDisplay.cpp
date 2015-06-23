@@ -281,7 +281,7 @@ void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 					else
 					{
                                           //ROS_INFO("------------------------------------------------- MapCloudDisplay.cpp -------------------------------------------------");
-                                          //std::cout << "------------------------------------------------- MapCloudDisplay.cpp -------------------------------------------------" << std::endl;
+                        std::cout << "------------------------------------------------- MapCloudDisplay.cpp -------------------------------------------------" << std::endl;
 						cloud = rtabmap::util3d::cloudFromDepthRGB(image, depth, cx, cy, fx, fy, cloud_decimation_->getInt());
 					}
 					if(cloud_max_depth_->getFloat() > 0.0f)

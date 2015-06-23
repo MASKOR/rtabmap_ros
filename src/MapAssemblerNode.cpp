@@ -143,7 +143,7 @@ public:
 						else
 						{
                                                   //ROS_INFO("------------------------------------------------- MapAssemblerNode.cpp -------------------------------------------------");
-                                                  //std::cout << "------------------------------------------------- MapAssemblerNode.cpp -------------------------------------------------" << std::endl;
+                            std::cout << "------------------------------------------------- MapAssemblerNode.cpp -------------------------------------------------" << std::endl;
 							cloud = util3d::cloudFromDepthRGB(image, depth, cx, cy, fx, fy, cloudDecimation_);
 						}
 

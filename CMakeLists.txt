@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(rtabmap_ros)
+SET(PROJECT_PREFIX rtabmap)
+set(CMAKE_BUILD_TYPE Debug)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)

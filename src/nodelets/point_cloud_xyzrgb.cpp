@@ -216,7 +216,7 @@ private:
             cv_bridge::CvImageConstPtr imageDepthPtr = cv_bridge::toCvShare(imageDepth);
             cv_bridge::CvImageConstPtr imageThermalPtr = cv_bridge::toCvShare(imageThermal, "mono8");
 
-            std::cout << "------------------------- IT'S ME! myTestCallback point_cloud_xyzrgb.cpp --------------------------" << std::endl;
+            //std::cout << "------------------------- IT'S ME! myTestCallback point_cloud_xyzrgb.cpp --------------------------" << std::endl;
             
 //            cv::Mat rgb_image, thermal_Image;
 //            rgb_image = imagePtr->image.clone();

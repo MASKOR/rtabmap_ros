@@ -66,6 +66,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rtabmap_ros/MsgConversion.h"
 
+#include "rtabmap/core/Compression.h"
+
 using namespace rtabmap;
 
 float max3( const float& a, const float& b, const float& c)
@@ -1998,7 +2000,7 @@ bool CoreWrapper::publishMapCallback(rtabmap_ros::PublishMap::Request& req, rtab
 				{
 					rtabmap_ros::nodeDataToROS(iter->second, msg->nodes[i++]);
 				}
-
+                std::cout << "------------------------------------------------- mapDataPub ONE in CoreWrapper.cpp -------------------------------------------------" << std::endl;
 				mapDataPub_.publish(msg);
 			}
 
@@ -2230,6 +2232,21 @@ void CoreWrapper::publishStats(const ros::Time & stamp)
 				msg->nodes.resize(1);
 				rtabmap_ros::nodeDataToROS(stats.getSignature(), msg->nodes[0]);
 
+//                int rows = 480, cols = 640;
+//                cv::Mat testImage = cv::Mat::zeros(rows,cols, CV_8UC1);
+//                int pixelPointer = 0;
+//                for (int y = 0; y < rows; y++)
+//                {
+//                    for (int x = 0; x < cols; x++)
+//                    {
+//                        testImage.at<uchar>(y,x) = msg->nodes[0].userData[pixelPointer];
+//                        pixelPointer = pixelPointer + 1;
+//                    }
+//                }
+
+//                msg->nodes[0].image = compressImage2(testImage,".jpg");
+
+                std::cout << "------------------------------------------------- mapDataPub TWO in CoreWrapper.cpp -------------------------------------------------" << std::endl;
 				mapDataPub_.publish(msg);
 			}
 

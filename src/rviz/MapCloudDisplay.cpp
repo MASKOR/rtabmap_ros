@@ -245,6 +245,8 @@ void MapCloudDisplay::processMessage( const rtabmap_ros::MapDataConstPtr& msg )
 
 void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 {
+
+    std::cout << "------------------------------------------------- processMapData in MapCloudDisplay.cpp -------------------------------------------------" << std::endl;
 	// Add new clouds...
 	for(unsigned int i=0; i<map.nodes.size() && i<map.nodes.size(); ++i)
 	{

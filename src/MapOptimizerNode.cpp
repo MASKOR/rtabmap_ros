@@ -279,6 +279,7 @@ public:
 			outputMsg.graph.links = msg->graph.links;
 			outputMsg.header = msg->header;
 			outputMsg.nodes = msg->nodes;
+            std::cout << "------------------------------------------------- MapOptimizerNode.cpp -------------------------------------------------" << std::endl;
 			mapDataPub_.publish(outputMsg);
 
 			ROS_INFO("Time graph optimization = %f s", timer.ticks());

@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <eigen_conversions/eigen_msg.h>
 #include <tf_conversions/tf_eigen.h>
 
+
 namespace rtabmap_ros {
 
 void transformToTF(const rtabmap::Transform & transform, tf::Transform & tfTransform)
@@ -433,7 +434,37 @@ void nodeDataToROS(const rtabmap::Signature & signature, rtabmap_ros::NodeData &
 	msg.label = signature.getLabel();
 	msg.userData.data = signature.getUserData();
 	transformToPoseMsg(signature.getPose(), msg.pose);
-	compressedMatToBytes(signature.getImageCompressed(), msg.image);
+
+    //Convert thermal image in userData from std::vector<unsigned char> to cv::Mat
+    int rows = 480, cols = 640;
+    cv::Mat testImage = cv::Mat::zeros(rows,cols, CV_8UC1);
+    int pixelPointer = 0;
+    for (int y = 0; y < rows; y++)
+    {
+        for (int x = 0; x < cols; x++)
+        {
+            testImage.at<uchar>(y,x) = msg.userData.data[pixelPointer];
+            pixelPointer = pixelPointer + 1;
+        }
+    }
+
+    //This code is from /rtabmap/Compression.cpp. Function compressImage and compressImage2
+    std::vector<unsigned char> bytes;
+    if(!testImage.empty())
+    {
+        cv::imencode(".jpg", testImage, bytes);
+    }
+
+    cv::Mat compressedTestImage;
+    if(bytes.size())
+    {
+        compressedTestImage = cv::Mat(1, (int)bytes.size(), CV_8UC1, bytes.data()).clone();
+    }
+
+    //compressedMatToBytes(signature.getImageCompressed(), msg.image); //Original RGB image
+
+    compressedMatToBytes(compressedTestImage, msg.image); //ThermalImage
+
 	compressedMatToBytes(signature.getDepthCompressed(), msg.depth);
 	compressedMatToBytes(signature.getLaserScanCompressed(), msg.laserScan);
 	msg.fx = signature.getFx();

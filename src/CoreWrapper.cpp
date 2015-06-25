@@ -2246,6 +2246,10 @@ void CoreWrapper::publishStats(const ros::Time & stamp)
 
 //                msg->nodes[0].image = compressImage2(testImage,".jpg");
 
+                //msg->nodes[0].image = msg->nodes[0].depth;
+
+
+
                 std::cout << "------------------------------------------------- mapDataPub TWO in CoreWrapper.cpp -------------------------------------------------" << std::endl;
 				mapDataPub_.publish(msg);
 			}

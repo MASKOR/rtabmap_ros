@@ -1411,6 +1411,21 @@ void CoreWrapper::thermalProcess(
         std::vector<unsigned char> thermalArray;
         thermalArray.assign(thermal_Image.datastart, thermal_Image.dataend);
 
+        //Set all depth information to Zero where thermal image is black
+        for (int y = 0; y < imageB.rows; y++)
+        {
+          for (int x = 0; x < imageB.cols; x++)
+          {
+              if(thermal_Image.at<uchar>(y,x) == 0){
+                  imageB.at<short int>(y,x) = 0; //std::numeric_limits<double>::quiet_NaN();
+                  //std::cout << "Thermal Image is black here" << std::endl;
+              }
+          }
+        }
+
+        //cv::imshow("imageB", imageB);
+        //cv::waitKey(30);
+
         SensorData data(scan,
                         scanMaxPts,
                         image.clone(),
@@ -2250,7 +2265,7 @@ void CoreWrapper::publishStats(const ros::Time & stamp)
 
 
 
-                std::cout << "------------------------------------------------- mapDataPub TWO in CoreWrapper.cpp -------------------------------------------------" << std::endl;
+                //std::cout << "------------------------------------------------- mapDataPub TWO in CoreWrapper.cpp -------------------------------------------------" << std::endl;
 				mapDataPub_.publish(msg);
 			}
 

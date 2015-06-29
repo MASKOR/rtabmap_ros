@@ -437,16 +437,36 @@ void nodeDataToROS(const rtabmap::Signature & signature, rtabmap_ros::NodeData &
 
     //Convert thermal image in userData from std::vector<unsigned char> to cv::Mat
     int rows = 480, cols = 640;
-    cv::Mat testImage = cv::Mat::zeros(rows,cols, CV_8UC1);
+    cv::Mat testImage;
     int pixelPointer = 0;
-    for (int y = 0; y < rows; y++)
-    {
-        for (int x = 0; x < cols; x++)
+
+    if(msg.userData.data.size() == 307200){
+        testImage = cv::Mat::zeros(rows,cols, CV_8UC1);
+        for (int y = 0; y < rows; y++)
         {
-            testImage.at<uchar>(y,x) = msg.userData.data[pixelPointer];
-            pixelPointer = pixelPointer + 1;
+            for (int x = 0; x < cols; x++)
+            {
+                testImage.at<uchar>(y,x) = msg.userData.data[pixelPointer];
+                pixelPointer = pixelPointer + 1;
+            }
+        }
+    }else{
+        testImage = cv::Mat::zeros(rows,cols, CV_8UC3);
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < cols; x++)
+            {
+                testImage.at<cv::Vec3b>(y,x)[0] = msg.userData.data[pixelPointer];                  // No offset                for B
+                testImage.at<cv::Vec3b>(y,x)[1] = msg.userData.data[pixelPointer + 1] ;         // Offset = (640 * 480)     for G
+                testImage.at<cv::Vec3b>(y,x)[2] = msg.userData.data[pixelPointer + 2] ;         // Offset = (640 * 480) * 2 for R
+                pixelPointer = pixelPointer + 3;
+            }
         }
     }
+
+    //cv::imshow("test image", testImage);
+    //cv::waitKey(30);
+
 
     //This code is from /rtabmap/Compression.cpp. Function compressImage and compressImage2
     std::vector<unsigned char> bytes;
@@ -456,10 +476,12 @@ void nodeDataToROS(const rtabmap::Signature & signature, rtabmap_ros::NodeData &
     }
 
     cv::Mat compressedTestImage;
+
     if(bytes.size())
     {
         compressedTestImage = cv::Mat(1, (int)bytes.size(), CV_8UC1, bytes.data()).clone();
     }
+
 
     //compressedMatToBytes(signature.getImageCompressed(), msg.image); //Original RGB image
 

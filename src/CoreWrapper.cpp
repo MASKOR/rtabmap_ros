@@ -758,7 +758,18 @@ void CoreWrapper::commonThermalDepthCallback(
     // ##########################################
     // ## Get the thermal image
     // ##########################################
-    cv_bridge::CvImageConstPtr imageThermalPtr = cv_bridge::toCvShare(thermalMsg, "mono8");
+    cv_bridge::CvImageConstPtr imageThermalPtr;
+    if(thermalMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) == 0)
+    {
+        imageThermalPtr = cv_bridge::toCvShare(thermalMsg, "mono8");
+    }
+    else
+    {
+        imageThermalPtr = cv_bridge::toCvShare(thermalMsg, "bgr8");
+    }
+
+
+    //cv_bridge::CvImageConstPtr imageThermalPtr = cv_bridge::toCvShare(thermalMsg, "mono8");
     //cv::Mat thermal_Image;
     //thermal_Image = imageThermalPtr->image.clone();
 
@@ -1412,16 +1423,38 @@ void CoreWrapper::thermalProcess(
         thermalArray.assign(thermal_Image.datastart, thermal_Image.dataend);
 
         //Set all depth information to Zero where thermal image is black
-        for (int y = 0; y < imageB.rows; y++)
-        {
-          for (int x = 0; x < imageB.cols; x++)
-          {
-              if(thermal_Image.at<uchar>(y,x) == 0){
-                  imageB.at<short int>(y,x) = 0; //std::numeric_limits<double>::quiet_NaN();
-                  //std::cout << "Thermal Image is black here" << std::endl;
-              }
-          }
+
+        // ##################################################################
+        // ## Set all depth information to Zero where thermal image is black
+        // ##################################################################
+
+
+        if (thermal_Image.type() == CV_8UC1){
+            for (int y = 0; y < imageB.rows; y++)
+            {
+                for (int x = 0; x < imageB.cols; x++)
+                {
+                    if(thermal_Image.at<uchar>(y,x) == 0){
+                        imageB.at<short int>(y,x) = 0; //std::numeric_limits<double>::quiet_NaN();
+                        //std::cout << "Thermal Image is black here" << std::endl;
+                    }
+                }
+            }
+        }else {
+            for (int y = 0; y < imageB.rows; y++)
+            {
+                for (int x = 0; x < imageB.cols; x++)
+                {
+                    if(thermal_Image.at<cv::Vec3b>(y,x)[0] == 0 &&
+                            thermal_Image.at<cv::Vec3b>(y,x)[1] == 0 &&
+                            thermal_Image.at<cv::Vec3b>(y,x)[2] == 0){
+                        imageB.at<short int>(y,x) = 0; //std::numeric_limits<double>::quiet_NaN();
+                        //std::cout << "Thermal Image is black here" << std::endl;
+                    }
+                }
+            }
         }
+
 
         //cv::imshow("imageB", imageB);
         //cv::waitKey(30);

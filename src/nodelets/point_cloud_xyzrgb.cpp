@@ -214,7 +214,19 @@ private:
           {
             cv_bridge::CvImageConstPtr imagePtr = cv_bridge::toCvShare(image, "bgr8");
             cv_bridge::CvImageConstPtr imageDepthPtr = cv_bridge::toCvShare(imageDepth);
-            cv_bridge::CvImageConstPtr imageThermalPtr = cv_bridge::toCvShare(imageThermal, "mono8");
+
+            cv_bridge::CvImageConstPtr imageThermalPtr;
+
+            if(imageThermal->encoding.compare(sensor_msgs::image_encodings::MONO8) == 0)
+            {
+                imageThermalPtr = cv_bridge::toCvShare(imageThermal, "mono8");
+            }
+            else
+            {
+                imageThermalPtr = cv_bridge::toCvShare(imageThermal, "bgr8");
+            }
+
+            //cv_bridge::CvImageConstPtr imageThermalPtr = cv_bridge::toCvShare(imageThermal, "mono8");
 
             //std::cout << "------------------------- IT'S ME! myTestCallback point_cloud_xyzrgb.cpp --------------------------" << std::endl;
             

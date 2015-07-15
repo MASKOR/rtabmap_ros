@@ -456,9 +456,9 @@ void nodeDataToROS(const rtabmap::Signature & signature, rtabmap_ros::NodeData &
         {
             for (int x = 0; x < cols; x++)
             {
-                testImage.at<cv::Vec3b>(y,x)[0] = msg.userData.data[pixelPointer];                  // No offset                for B
-                testImage.at<cv::Vec3b>(y,x)[1] = msg.userData.data[pixelPointer + 1] ;         // Offset = (640 * 480)     for G
-                testImage.at<cv::Vec3b>(y,x)[2] = msg.userData.data[pixelPointer + 2] ;         // Offset = (640 * 480) * 2 for R
+                testImage.at<cv::Vec3b>(y,x)[0] = msg.userData.data[pixelPointer];              // No offset    for B
+                testImage.at<cv::Vec3b>(y,x)[1] = msg.userData.data[pixelPointer + 1] ;         // Offset = 1   for G
+                testImage.at<cv::Vec3b>(y,x)[2] = msg.userData.data[pixelPointer + 2] ;         // Offset = 2   for R
                 pixelPointer = pixelPointer + 3;
             }
         }

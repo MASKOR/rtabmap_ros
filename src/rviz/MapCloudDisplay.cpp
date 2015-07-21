@@ -172,7 +172,7 @@ MapCloudDisplay::MapCloudDisplay()
 											 "Download the optimized global graph (without cloud data) using rtabmap/GetMap service.",
 											 this, SLOT( downloadGraph() ), this );
 
-    doPostProzess_ = new rviz::BoolProperty( "Do postprozess", false,
+    doPostProzess_ = new rviz::BoolProperty( "Do post-process", false,
                                              "Colores the map in a postprozessing stap.",
                                              this, SLOT( doPostProzess() ), this );
 
@@ -648,8 +648,8 @@ void MapCloudDisplay::doPostProzess(){
     {
         //std::cout << "Hi, im the doPostProzess Function! :-)" << std::endl; // Tested: Works!
 
-        float minValue = 0xFFFFFFFF;
-        float maxValue = 0;
+        //float minValue = 0xFFFFFFFF;
+        //float maxValue = 0;
 
         double matSize = 0;
 
@@ -691,9 +691,9 @@ void MapCloudDisplay::doPostProzess(){
                     //std::cout << cloud_point->color.b << " " << cloud_point->color.g << " " << cloud_point->color.r << "||";
                     int i = std::distance( cloud_points.begin(), cloud_point ); // tested: works!
                     //std::cout << "I = " << i << std::endl;
-                    cloudMat.at<cv::Vec3f>(i+matIterator,1)[0] = cloud_point->color.r;
+                    cloudMat.at<cv::Vec3f>(i+matIterator,1)[0] = cloud_point->color.b;
                     cloudMat.at<cv::Vec3f>(i+matIterator,1)[1] = cloud_point->color.g;   // tested: works!!
-                    cloudMat.at<cv::Vec3f>(i+matIterator,1)[2] = cloud_point->color.b;
+                    cloudMat.at<cv::Vec3f>(i+matIterator,1)[2] = cloud_point->color.r;
 
                     //Find max and min but only do it if the cloud is gray!
 //                    if (cloud_point->color.b == cloud_point->color.g && cloud_point->color.g == cloud_point->color.r){
@@ -805,23 +805,107 @@ void MapCloudDisplay::doPostProzess(){
 
 
 
-        cv::Mat cloudMatBytes;
+        cv::Mat cloudMatBytes;// = cv::Mat::ones(cloudMat.rows,cloudMat.cols, CV_8UC1);
 
-        cloudMat.convertTo(cloudMatBytes,CV_8U,255.0); // tested: works!
-        //            for (int i = 0; i < cloudMatBytes.rows; i++)
-        //            {
-        //                for (int j = 0; j < cloudMatBytes.cols; j++)
-        //                {
-        //                    std::cout << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[0]
-        //                            << " " << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[1]
-        //                            << " " << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[2] << " || ";
-        //                }
-        //            }
-        //            std::cout << "-----------------------" << std::endl;
+        //cloudMat.convertTo(cloudMatBytes,CV_8U,255.0); // tested: works!
 
-        cv::normalize(cloudMatBytes, cloudMatBytes, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+        float minValue = 0xFFFFFFFF;
+        float maxValue = 0;
+
+        for (int i = 0; i < cloudMat.rows; i++)
+        {
+            for (int j = 0; j < cloudMat.cols; j++)
+            {
+                if (cloudMat.at<cv::Vec3f>(i,j)[0] < minValue){
+                    minValue = cloudMat.at<cv::Vec3f>(i,j)[0];
+                }
+                if (cloudMat.at<cv::Vec3f>(i,j)[0] > maxValue){
+                    maxValue = cloudMat.at<cv::Vec3f>(i,j)[0];
+                }
+                std::cout << (float)cloudMat.at<cv::Vec3f>(i,j)[0]
+                        << " " << (float)cloudMat.at<cv::Vec3f>(i,j)[1]
+                        << " " << (float)cloudMat.at<cv::Vec3f>(i,j)[2] << " || ";
+            }
+        }
+        std::cout << "-----------------------" << std::endl;
+
+        std::cout << "Max value = " << maxValue << " Min value = " << minValue << std::endl;
+
+        //cv::normalize(cloudMatBytes, cloudMatBytes, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+        cv::normalize(cloudMat, cloudMatBytes, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+//        for (int i = 0; i < cloudMatBytes.rows; i++)
+//        {
+//            for (int j = 0; j < cloudMatBytes.cols; j++)
+//            {
+//                if (cloudMatBytes.at<cv::Vec3b>(i,j)[0] < minValue){
+//                    minValue = cloudMatBytes.at<cv::Vec3b>(i,j)[0];
+//                }
+//                if (cloudMatBytes.at<cv::Vec3b>(i,j)[0] > maxValue){
+//                    maxValue = cloudMatBytes.at<cv::Vec3b>(i,j)[0];
+//                }
+//                std::cout << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[0]
+//                        << " " << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[1]
+//                        << " " << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[2] << " || ";
+//            }
+//        }
+//        std::cout << "-----------------------" << std::endl;
+
+//        std::cout << "Max value = " << maxValue << " Min value = " << minValue << std::endl;
+
+
+//        for (int i = 0; i < cloudMat.rows; i++)
+//        {
+//            for (int j = 0; j < cloudMat.cols; j++)
+//            {
+//                if (cloudMat.at<cv::Vec3f>(i,j)[0] < minValue){
+//                    minValue = cloudMat.at<cv::Vec3f>(i,j)[0];
+//                }
+//                if (cloudMat.at<cv::Vec3f>(i,j)[0] > maxValue){
+//                    maxValue = cloudMat.at<cv::Vec3f>(i,j)[0];
+//                }
+//            }
+//        }
+
+//        for (int y = 0; y < cloudMat.rows; y++)
+//        {
+//            for (int x = 0; x < cloudMat.cols; x++)
+//            {
+//                if(cloudMat.at<float>(y,x) <= minValue){
+//                    cloudMatBytes.at<unsigned char>(y,x) = 0;
+//                }else if (cloudMat.at<float>(y,x) >= maxValue){
+//                    cloudMatBytes.at<unsigned char>(y,x) = 255;
+//                }else{
+
+//                    cloudMatBytes.at<unsigned char>(y,x) = (cloudMat.at<float>(y,x) - minValue) / ( (maxValue - minValue) / 255.) ;
+//                }
+//            }
+//        }
 
         cv::applyColorMap(cloudMatBytes, cloudMatBytes, cv::COLORMAP_JET);
+
+        cloudMatBytes.convertTo(cloudMat,CV_32FC3,1./255.);
+
+//        for (int i = 0; i < cloudMat.rows; i++)
+//        {
+//            for (int j = 0; j < cloudMat.cols; j++)
+//            {
+//                if (cloudMat.at<cv::Vec3f>(i,j)[0] < minValue){
+//                    minValue = cloudMat.at<cv::Vec3f>(i,j)[0];
+//                }
+//                if (cloudMat.at<cv::Vec3f>(i,j)[0] > maxValue){
+//                    maxValue = cloudMat.at<cv::Vec3f>(i,j)[0];
+//                }
+//                std::cout << (double)cloudMat.at<cv::Vec3f>(i,j)[0]
+//                        << " " << (double)cloudMat.at<cv::Vec3f>(i,j)[1]
+//                        << " " << (double)cloudMat.at<cv::Vec3f>(i,j)[2] << " || ";
+//            }
+//        }
+//        std::cout << "-----------------------" << std::endl;
+
+//        std::cout << "Max value = " << maxValue << " Min value = " << minValue << std::endl;
 
         //Reset iterator
         matIterator = 0;
@@ -845,9 +929,13 @@ void MapCloudDisplay::doPostProzess(){
                     //std::cout << cloud_point->color.b << " " << cloud_point->color.g << " " << cloud_point->color.r << "||";
                     int i = std::distance( cloud_points.begin(), cloud_point ); // tested: works!
                     //std::cout << "I = " << i << std::endl;
-                    cloud_point->color.b = cloudMatBytes.at<cv::Vec3b>(i+matIterator,1)[2];
-                    cloud_point->color.g = cloudMatBytes.at<cv::Vec3b>(i+matIterator,1)[1];
-                    cloud_point->color.r = cloudMatBytes.at<cv::Vec3b>(i+matIterator,1)[0];
+                    cloud_point->color.b = cloudMat.at<cv::Vec3f>(i+matIterator,1)[0];
+                    cloud_point->color.g = cloudMat.at<cv::Vec3f>(i+matIterator,1)[1];
+                    cloud_point->color.r = cloudMat.at<cv::Vec3f>(i+matIterator,1)[2];
+
+//                    cloud_point->color.b = 1.;
+//                    cloud_point->color.g = 0;
+//                    cloud_point->color.r = 0;
 
                     //Find max and min but only do it if the cloud is gray!
 //                    if (cloud_point->color.b == cloud_point->color.g && cloud_point->color.g == cloud_point->color.r){

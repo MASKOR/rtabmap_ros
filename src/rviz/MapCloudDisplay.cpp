@@ -174,7 +174,7 @@ MapCloudDisplay::MapCloudDisplay()
 
     doPostProzess_ = new rviz::BoolProperty( "Do post-process", false,
                                              "Colores the map in a postprozessing stap.",
-                                             this, SLOT( doPostProzess() ), this );
+                                             this, SLOT( doPostProcessing() ), this );
 
 	// PointCloudCommon sets up a callback queue with a thread for each
 	// instance.  Use that for processing incoming messages.
@@ -249,12 +249,6 @@ void MapCloudDisplay::processMessage( const rtabmap_ros::MapDataConstPtr& msg )
 
 void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 {
-
-//    if(blue){
-//        blue = false;
-//    }else{
-//        blue = true;
-//    }
 
     //std::cout << "------------------------------------------------- processMapData in MapCloudDisplay.cpp -------------------------------------------------" << std::endl;
 	// Add new clouds...
@@ -387,7 +381,13 @@ void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 		boost::mutex::scoped_lock lock(current_map_mutex_);
 		current_map_ = poses;
 	}
+
+    // ##########################################
+    // ## Calc needed time
+    // ##########################################
     //std::cout << map.graph.nodeIds.size() << std::endl;
+    double duration = map.graph.stamps[map.graph.stamps.size()-1] - map.graph.stamps[0];
+    std::cout << "For a map out of " << map.graph.stamps.size() << " Pointclouds, it took " << duration << " seconds." << std::endl;
 }
 
 void MapCloudDisplay::setPropertiesHidden( const QList<Property*>& props, bool hide )
@@ -633,7 +633,9 @@ void MapCloudDisplay::downloadGraph()
 	}
 }
 
-void MapCloudDisplay::doPostProzess(){
+void MapCloudDisplay::doPostProcessing(){
+
+    ros::Time start = ros::Time::now();
 
     rviz::PointCloud::RenderMode mode = (rviz::PointCloud::RenderMode) style_property_->getOptionInt();
 
@@ -810,27 +812,27 @@ void MapCloudDisplay::doPostProzess(){
         //cloudMat.convertTo(cloudMatBytes,CV_8U,255.0); // tested: works!
 
 
-        float minValue = 0xFFFFFFFF;
-        float maxValue = 0;
+//        float minValue = 0xFFFFFFFF;
+//        float maxValue = 0;
 
-        for (int i = 0; i < cloudMat.rows; i++)
-        {
-            for (int j = 0; j < cloudMat.cols; j++)
-            {
-                if (cloudMat.at<cv::Vec3f>(i,j)[0] < minValue){
-                    minValue = cloudMat.at<cv::Vec3f>(i,j)[0];
-                }
-                if (cloudMat.at<cv::Vec3f>(i,j)[0] > maxValue){
-                    maxValue = cloudMat.at<cv::Vec3f>(i,j)[0];
-                }
-                std::cout << (float)cloudMat.at<cv::Vec3f>(i,j)[0]
-                        << " " << (float)cloudMat.at<cv::Vec3f>(i,j)[1]
-                        << " " << (float)cloudMat.at<cv::Vec3f>(i,j)[2] << " || ";
-            }
-        }
-        std::cout << "-----------------------" << std::endl;
+//        for (int i = 0; i < cloudMat.rows; i++)
+//        {
+//            for (int j = 0; j < cloudMat.cols; j++)
+//            {
+//                if (cloudMat.at<cv::Vec3f>(i,j)[0] < minValue){
+//                    minValue = cloudMat.at<cv::Vec3f>(i,j)[0];
+//                }
+//                if (cloudMat.at<cv::Vec3f>(i,j)[0] > maxValue){
+//                    maxValue = cloudMat.at<cv::Vec3f>(i,j)[0];
+//                }
+//                std::cout << (float)cloudMat.at<cv::Vec3f>(i,j)[0]
+//                        << " " << (float)cloudMat.at<cv::Vec3f>(i,j)[1]
+//                        << " " << (float)cloudMat.at<cv::Vec3f>(i,j)[2] << " || ";
+//            }
+//        }
+//        std::cout << "-----------------------" << std::endl;
 
-        std::cout << "Max value = " << maxValue << " Min value = " << minValue << std::endl;
+//        std::cout << "Max value = " << maxValue << " Min value = " << minValue << std::endl;
 
         //cv::normalize(cloudMatBytes, cloudMatBytes, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
@@ -995,6 +997,10 @@ void MapCloudDisplay::doPostProzess(){
         //doPostProzess_->setBool(true);
         //doPostProzess_->blockSignals(false);
     }
+
+    ros::Time end = ros::Time::now();
+
+    std::cout << "It took " << end-start << " seconds to do post-processing." << std::endl;
 }
 
 void MapCloudDisplay::causeRetransform()

@@ -128,7 +128,7 @@ private Q_SLOTS:
 	void updateCloudParameters();
 	void downloadMap();
 	void downloadGraph();
-    void doPostProzess();
+    void doPostProcessing();
 
 protected:
 	/** @brief Do initialization. Overridden from MessageFilterDisplay. */

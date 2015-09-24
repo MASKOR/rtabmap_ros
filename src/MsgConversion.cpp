@@ -435,57 +435,58 @@ void nodeDataToROS(const rtabmap::Signature & signature, rtabmap_ros::NodeData &
 	msg.userData.data = signature.getUserData();
 	transformToPoseMsg(signature.getPose(), msg.pose);
 
-    //Convert thermal image in userData from std::vector<unsigned char> to cv::Mat
+    // #############################################################
+    // ## Convert thermal image in userData
+    // ## from std::vector<unsigned char> to cv::Mat
+    // #############################################################
     int rows = 480, cols = 640;
-    cv::Mat testImage;
+    cv::Mat thermalImage;
     int pixelPointer = 0;
 
     if(msg.userData.data.size() == 307200){
-        testImage = cv::Mat::zeros(rows,cols, CV_8UC1);
+        thermalImage = cv::Mat::zeros(rows,cols, CV_8UC1);
         for (int y = 0; y < rows; y++)
         {
             for (int x = 0; x < cols; x++)
             {
-                testImage.at<uchar>(y,x) = msg.userData.data[pixelPointer];
+                thermalImage.at<uchar>(y,x) = msg.userData.data[pixelPointer];
                 pixelPointer = pixelPointer + 1;
             }
         }
     }else{
-        testImage = cv::Mat::zeros(rows,cols, CV_8UC3);
+        thermalImage = cv::Mat::zeros(rows,cols, CV_8UC3);
         for (int y = 0; y < rows; y++)
         {
             for (int x = 0; x < cols; x++)
             {
-                testImage.at<cv::Vec3b>(y,x)[0] = msg.userData.data[pixelPointer];              // No offset    for B
-                testImage.at<cv::Vec3b>(y,x)[1] = msg.userData.data[pixelPointer + 1] ;         // Offset = 1   for G
-                testImage.at<cv::Vec3b>(y,x)[2] = msg.userData.data[pixelPointer + 2] ;         // Offset = 2   for R
+                thermalImage.at<cv::Vec3b>(y,x)[0] = msg.userData.data[pixelPointer];              // No offset    for B
+                thermalImage.at<cv::Vec3b>(y,x)[1] = msg.userData.data[pixelPointer + 1] ;         // Offset = 1   for G
+                thermalImage.at<cv::Vec3b>(y,x)[2] = msg.userData.data[pixelPointer + 2] ;         // Offset = 2   for R
                 pixelPointer = pixelPointer + 3;
             }
         }
     }
 
-    //cv::imshow("test image", testImage);
-    //cv::waitKey(30);
-
-
-    //This code is from /rtabmap/Compression.cpp. Function compressImage and compressImage2
+    // #############################################################
+    // ## This code is from /rtabmap/Compression.cpp.
+    // ## Function compressImage and compressImage2
+    // #############################################################
     std::vector<unsigned char> bytes;
-    if(!testImage.empty())
+    if(!thermalImage.empty())
     {
-        cv::imencode(".jpg", testImage, bytes);
+        cv::imencode(".jpg", thermalImage, bytes);
     }
 
-    cv::Mat compressedTestImage;
+    cv::Mat compressedThermalImage;
 
     if(bytes.size())
     {
-        compressedTestImage = cv::Mat(1, (int)bytes.size(), CV_8UC1, bytes.data()).clone();
+        compressedThermalImage = cv::Mat(1, (int)bytes.size(), CV_8UC1, bytes.data()).clone();
     }
 
 
     //compressedMatToBytes(signature.getImageCompressed(), msg.image); //Original RGB image
-
-    compressedMatToBytes(compressedTestImage, msg.image); //ThermalImage
+    compressedMatToBytes(compressedThermalImage, msg.image); //ThermalImage
 
 	compressedMatToBytes(signature.getDepthCompressed(), msg.depth);
 	compressedMatToBytes(signature.getLaserScanCompressed(), msg.laserScan);

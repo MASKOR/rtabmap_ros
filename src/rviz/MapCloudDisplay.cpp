@@ -249,14 +249,6 @@ void MapCloudDisplay::processMessage( const rtabmap_ros::MapDataConstPtr& msg )
 
 void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 {
-
-    //std::cout << "------------------------------------------------- processMapData in MapCloudDisplay.cpp -------------------------------------------------" << std::endl;
-	// Add new clouds...
-
-    //std::cout << map.nodes.size() << std::endl; // ADDED //ALWAYS ONE!
-
-    //std::cout << map.graph.nodeIds.size() << " ";
-
 	for(unsigned int i=0; i<map.nodes.size() && i<map.nodes.size(); ++i)
 	{
 		int id = map.nodes[i].id;
@@ -282,13 +274,6 @@ void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 				image = ctImage.getUncompressedData();
 				depth = ctDepth.getUncompressedData();
 
-                // Getestet!!!
-                // Wenn man in RVIZ die MapCloud anzeigt und als Topic /rtabmap/mapData angibt,
-                // dann wird MapCloudDisplay aufgerufen und die Map auf Basis der reinkommenden mapData zusammengefügt.
-                // Durch meine modifikation ist hier statt dem RGB, das Wärmebild vorhanden!
-                //cv::imshow("image", image);
-                //cv::waitKey(30);
-
 				if(!image.empty() && !depth.empty() && fx > 0.0f && fy > 0.0f && cx >= 0.0f && cy >= 0.0f)
 				{
 					pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
@@ -297,9 +282,7 @@ void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 						cloud = rtabmap::util3d::cloudFromStereoImages(image, depth, cx, cy, fx, fy, cloud_decimation_->getInt());
 					}
 					else
-					{
-                                          //ROS_INFO("------------------------------------------------- MapCloudDisplay.cpp -------------------------------------------------");
-                        //std::cout << "------------------------------------------------- MapCloudDisplay.cpp -------------------------------------------------" << std::endl;
+                    {
 						cloud = rtabmap::util3d::cloudFromDepthRGB(image, depth, cx, cy, fx, fy, cloud_decimation_->getInt());
 					}
 					if(cloud_max_depth_->getFloat() > 0.0f)
@@ -318,29 +301,6 @@ void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 					{
 						cloud = rtabmap::util3d::passThrough(cloud, "z", cloud_filter_floor_height_->getFloat(), 999.0f);
 					}
-
-                    // ##################################################################
-                    // ## Iterate through cloud to get min and max value WRONG HERE
-                    // ##################################################################
-//                    int min = 0xFF;
-//                    int max = 0;
-//                    for(pcl::PointCloud<pcl::PointXYZRGB>::iterator it = cloud->begin(); it != cloud->end(); it++){
-//                        //std::cout << it->r << ", " << it->g << ", " << it->b << std::endl;
-//                        //it->b = 173;
-//                        //it->g = 180;
-//                        //it->r = 62;
-
-//                        if(blue){
-//                            it->b = 255;
-//                            it->g = 0;
-//                            it->r = 0;
-//                        }else{
-//                            it->b = 0;
-//                            it->g = 0;
-//                            it->r = 255;
-//                        }
-
-//                    }
 
 					sensor_msgs::PointCloud2::Ptr cloudMsg(new sensor_msgs::PointCloud2);
 					pcl::toROSMsg(*cloud, *cloudMsg);
@@ -648,11 +608,6 @@ void MapCloudDisplay::doPostProcessing(){
 
     if(doPostProzess_->getBool())
     {
-        //std::cout << "Hi, im the doPostProzess Function! :-)" << std::endl; // Tested: Works!
-
-        //float minValue = 0xFFFFFFFF;
-        //float maxValue = 0;
-
         double matSize = 0;
 
         //Get the number of all points
@@ -662,10 +617,6 @@ void MapCloudDisplay::doPostProcessing(){
             CloudInfoPtr cloud_info = iter->second;
 
             rviz::V_PointCloudPoint& cloud_points = cloud_info->transformed_points_;
-
-            //std::cout << "-----------------New cloud info------------------------" << std::endl;
-
-            //cv::Mat cloudMat = cv::Mat::zeros(cloud_points.size(),1, CV_32FC3);
 
             matSize = matSize + cloud_points.size();
         }
@@ -681,233 +632,27 @@ void MapCloudDisplay::doPostProcessing(){
 
             rviz::V_PointCloudPoint& cloud_points = cloud_info->transformed_points_;
 
-            //std::cout << "-----------------New cloud info------------------------" << std::endl;
-
-            //cv::Mat cloudMat = cv::Mat::zeros(cloud_points.size(),1, CV_32FC3);
-
             for (rviz::V_PointCloudPoint::iterator cloud_point = cloud_points.begin(); cloud_point != cloud_points.end(); ++cloud_point)
             {
                 if (rviz::validateFloats(cloud_point->position))
                 {
-                    //PointCloud.Point.color.
-                    //std::cout << cloud_point->color.b << " " << cloud_point->color.g << " " << cloud_point->color.r << "||";
-                    int i = std::distance( cloud_points.begin(), cloud_point ); // tested: works!
-                    //std::cout << "I = " << i << std::endl;
+                    int i = std::distance( cloud_points.begin(), cloud_point );
                     cloudMat.at<cv::Vec3f>(i+matIterator,1)[0] = cloud_point->color.b;
-                    cloudMat.at<cv::Vec3f>(i+matIterator,1)[1] = cloud_point->color.g;   // tested: works!!
+                    cloudMat.at<cv::Vec3f>(i+matIterator,1)[1] = cloud_point->color.g;
                     cloudMat.at<cv::Vec3f>(i+matIterator,1)[2] = cloud_point->color.r;
-
-                    //Find max and min but only do it if the cloud is gray!
-//                    if (cloud_point->color.b == cloud_point->color.g && cloud_point->color.g == cloud_point->color.r){
-//                        if (cloud_point->color.b < minValue){
-//                            minValue = cloud_point->color.b;
-//                        }
-//                        if (cloud_point->color.b > maxValue){
-//                            maxValue = cloud_point->color.b;
-//                        }
-//                    }
-
-
-                    //                    std::cout << cloudMat.at<cv::Vec3f>(i,1)[0]
-                    //                              << " " << cloudMat.at<cv::Vec3f>(i,1)[1]
-                    //                              << " " << cloudMat.at<cv::Vec3f>(i,1)[2] << " || ";
-
-                    //cloud_point->color.b = 0; // GETESTET! Works
-                    //cloud_point->color.g = 0;
-                    //cloud_point->color.r = 1;
                 }
             }
 
             matIterator = matIterator + cloud_points.size();
-            //std::cout << std::endl;
-
-//            cv::Mat cloudMatBytes;
-
-//            cloudMat.convertTo(cloudMatBytes,CV_8U,255.0); // tested: works!
-////            for (int i = 0; i < cloudMatBytes.rows; i++)
-////            {
-////                for (int j = 0; j < cloudMatBytes.cols; j++)
-////                {
-////                    std::cout << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[0]
-////                            << " " << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[1]
-////                            << " " << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[2] << " || ";
-////                }
-////            }
-////            std::cout << "-----------------------" << std::endl;
-
-//            cv::normalize(cloudMatBytes, cloudMatBytes, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-
-//            cv::applyColorMap(cloudMatBytes, cloudMatBytes, cv::COLORMAP_JET);
-            //cloudMatBytes.convertTo(cloudMat,CV_32F,1/255.0);
-
-            //                for (int i = 0; i < cloudMat.rows; i++)
-            //                {
-            //                    for (int j = 0; j < cloudMat.cols; j++)
-            //                    {
-            //                        std::cout << cloudMat.at<cv::Vec3f>(i,j)[0]
-            //                                  << " " << cloudMat.at<cv::Vec3f>(i,j)[1]
-            //                                  << " " << cloudMat.at<cv::Vec3f>(i,j)[2] << " || ";
-            //                    }
-            //                }
-            //                std::cout << "-----------------------" << std::endl;
-
-            //                cv::Mat cloudMatGray;
-            //                cv::cvtColor(cloudMat,cloudMatGray,CV_BGR2GRAY);
-
-            ////                for (int i = 0; i < cloudMatGray.rows; i++)
-            ////                {
-            ////                    for (int j = 0; j < cloudMatGray.cols; j++)
-            ////                    {
-            ////                        std::cout << cloudMatGray.at<float>(i,j) << " " ;
-            ////                    }
-            ////                }
-            ////                std::cout << "-----------------------" << std::endl;
-
-            //                //std::cout << "Cloud size: " << cloud_points.size() << std::endl;
-            //                //std::cout << "Mat rows: " << cloudMatGray.rows << " Mat cols: " << cloudMatGray.cols << std::endl;
-
-//            for (rviz::V_PointCloudPoint::iterator cloud_point = cloud_points.begin(); cloud_point != cloud_points.end(); ++cloud_point)
-//            {
-//                if (rviz::validateFloats(cloud_point->position))
-//                {
-//                    //PointCloud.Point.color.
-//                    //std::cout << cloud_point->color.b << " " << cloud_point->color.g << " " << cloud_point->color.r << "||";
-//                    int i = std::distance( cloud_points.begin(), cloud_point ); // tested: works!
-//                    //std::cout << "I = " << i << std::endl;
-//                    cloud_point->color.b = cloudMatBytes.at<cv::Vec3b>(i,1)[0];
-//                    cloud_point->color.g = cloudMatBytes.at<cv::Vec3b>(i,1)[1];
-//                    cloud_point->color.r = cloudMatBytes.at<cv::Vec3b>(i,1)[2];
-//                    //cloud_point->color.b = 0; // GETESTET! Works
-//                    //cloud_point->color.g = 0;
-//                    //cloud_point->color.r = 1;
-//                }
-//            }
-
-//            cloud_info->cloud_.reset( new rviz::PointCloud() );
-//            cloud_info->cloud_->addPoints( &(cloud_points.front()), cloud_points.size() );
-//            cloud_info->cloud_->setRenderMode( mode );
-//            cloud_info->cloud_->setAlpha( alpha_property_->getFloat() );
-//            cloud_info->cloud_->setDimensions( size, size, size );
-//            cloud_info->cloud_->setAutoSize(false);
-
-//            cloud_info->manager_ = context_->getSceneManager();
-
-//            cloud_info->scene_node_ = scene_node_->createChildSceneNode();
-
-//            cloud_info->scene_node_->attachObject( cloud_info->cloud_.get() );
-//            cloud_info->scene_node_->setVisible(false);
-
-//            cloud_infos_.insert(*iter);
-
         }
 
-
-
-        //std::cout << "Max value = " << maxValue << " Min value = " << minValue << std::endl;
-
-
-
-        cv::Mat cloudMatBytes;// = cv::Mat::ones(cloudMat.rows,cloudMat.cols, CV_8UC1);
-
-        //cloudMat.convertTo(cloudMatBytes,CV_8U,255.0); // tested: works!
-
-
-//        float minValue = 0xFFFFFFFF;
-//        float maxValue = 0;
-
-//        for (int i = 0; i < cloudMat.rows; i++)
-//        {
-//            for (int j = 0; j < cloudMat.cols; j++)
-//            {
-//                if (cloudMat.at<cv::Vec3f>(i,j)[0] < minValue){
-//                    minValue = cloudMat.at<cv::Vec3f>(i,j)[0];
-//                }
-//                if (cloudMat.at<cv::Vec3f>(i,j)[0] > maxValue){
-//                    maxValue = cloudMat.at<cv::Vec3f>(i,j)[0];
-//                }
-//                std::cout << (float)cloudMat.at<cv::Vec3f>(i,j)[0]
-//                        << " " << (float)cloudMat.at<cv::Vec3f>(i,j)[1]
-//                        << " " << (float)cloudMat.at<cv::Vec3f>(i,j)[2] << " || ";
-//            }
-//        }
-//        std::cout << "-----------------------" << std::endl;
-
-//        std::cout << "Max value = " << maxValue << " Min value = " << minValue << std::endl;
-
-        //cv::normalize(cloudMatBytes, cloudMatBytes, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+        cv::Mat cloudMatBytes;
 
         cv::normalize(cloudMat, cloudMatBytes, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-
-//        for (int i = 0; i < cloudMatBytes.rows; i++)
-//        {
-//            for (int j = 0; j < cloudMatBytes.cols; j++)
-//            {
-//                if (cloudMatBytes.at<cv::Vec3b>(i,j)[0] < minValue){
-//                    minValue = cloudMatBytes.at<cv::Vec3b>(i,j)[0];
-//                }
-//                if (cloudMatBytes.at<cv::Vec3b>(i,j)[0] > maxValue){
-//                    maxValue = cloudMatBytes.at<cv::Vec3b>(i,j)[0];
-//                }
-//                std::cout << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[0]
-//                        << " " << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[1]
-//                        << " " << (double)cloudMatBytes.at<cv::Vec3b>(i,j)[2] << " || ";
-//            }
-//        }
-//        std::cout << "-----------------------" << std::endl;
-
-//        std::cout << "Max value = " << maxValue << " Min value = " << minValue << std::endl;
-
-
-//        for (int i = 0; i < cloudMat.rows; i++)
-//        {
-//            for (int j = 0; j < cloudMat.cols; j++)
-//            {
-//                if (cloudMat.at<cv::Vec3f>(i,j)[0] < minValue){
-//                    minValue = cloudMat.at<cv::Vec3f>(i,j)[0];
-//                }
-//                if (cloudMat.at<cv::Vec3f>(i,j)[0] > maxValue){
-//                    maxValue = cloudMat.at<cv::Vec3f>(i,j)[0];
-//                }
-//            }
-//        }
-
-//        for (int y = 0; y < cloudMat.rows; y++)
-//        {
-//            for (int x = 0; x < cloudMat.cols; x++)
-//            {
-//                if(cloudMat.at<float>(y,x) <= minValue){
-//                    cloudMatBytes.at<unsigned char>(y,x) = 0;
-//                }else if (cloudMat.at<float>(y,x) >= maxValue){
-//                    cloudMatBytes.at<unsigned char>(y,x) = 255;
-//                }else{
-
-//                    cloudMatBytes.at<unsigned char>(y,x) = (cloudMat.at<float>(y,x) - minValue) / ( (maxValue - minValue) / 255.) ;
-//                }
-//            }
-//        }
 
         cv::applyColorMap(cloudMatBytes, cloudMatBytes, cv::COLORMAP_JET);
 
         cloudMatBytes.convertTo(cloudMat,CV_32FC3,1./255.);
-
-//        for (int i = 0; i < cloudMat.rows; i++)
-//        {
-//            for (int j = 0; j < cloudMat.cols; j++)
-//            {
-//                if (cloudMat.at<cv::Vec3f>(i,j)[0] < minValue){
-//                    minValue = cloudMat.at<cv::Vec3f>(i,j)[0];
-//                }
-//                if (cloudMat.at<cv::Vec3f>(i,j)[0] > maxValue){
-//                    maxValue = cloudMat.at<cv::Vec3f>(i,j)[0];
-//                }
-//                std::cout << (double)cloudMat.at<cv::Vec3f>(i,j)[0]
-//                        << " " << (double)cloudMat.at<cv::Vec3f>(i,j)[1]
-//                        << " " << (double)cloudMat.at<cv::Vec3f>(i,j)[2] << " || ";
-//            }
-//        }
-//        std::cout << "-----------------------" << std::endl;
-
-//        std::cout << "Max value = " << maxValue << " Min value = " << minValue << std::endl;
 
         //Reset iterator
         matIterator = 0;
@@ -919,44 +664,15 @@ void MapCloudDisplay::doPostProcessing(){
 
             rviz::V_PointCloudPoint& cloud_points = cloud_info->transformed_points_;
 
-            //std::cout << "-----------------New cloud info------------------------" << std::endl;
-
-            //cv::Mat cloudMat = cv::Mat::zeros(cloud_points.size(),1, CV_32FC3);
-
             for (rviz::V_PointCloudPoint::iterator cloud_point = cloud_points.begin(); cloud_point != cloud_points.end(); ++cloud_point)
             {
                 if (rviz::validateFloats(cloud_point->position))
                 {
-                    //PointCloud.Point.color.
-                    //std::cout << cloud_point->color.b << " " << cloud_point->color.g << " " << cloud_point->color.r << "||";
-                    int i = std::distance( cloud_points.begin(), cloud_point ); // tested: works!
-                    //std::cout << "I = " << i << std::endl;
+                    int i = std::distance( cloud_points.begin(), cloud_point );
                     cloud_point->color.b = cloudMat.at<cv::Vec3f>(i+matIterator,1)[0];
                     cloud_point->color.g = cloudMat.at<cv::Vec3f>(i+matIterator,1)[1];
                     cloud_point->color.r = cloudMat.at<cv::Vec3f>(i+matIterator,1)[2];
 
-//                    cloud_point->color.b = 1.;
-//                    cloud_point->color.g = 0;
-//                    cloud_point->color.r = 0;
-
-                    //Find max and min but only do it if the cloud is gray!
-//                    if (cloud_point->color.b == cloud_point->color.g && cloud_point->color.g == cloud_point->color.r){
-//                        if (cloud_point->color.b < minValue){
-//                            minValue = cloud_point->color.b;
-//                        }
-//                        if (cloud_point->color.b > maxValue){
-//                            maxValue = cloud_point->color.b;
-//                        }
-//                    }
-
-
-                    //                    std::cout << cloudMat.at<cv::Vec3f>(i,1)[0]
-                    //                              << " " << cloudMat.at<cv::Vec3f>(i,1)[1]
-                    //                              << " " << cloudMat.at<cv::Vec3f>(i,1)[2] << " || ";
-
-                    //cloud_point->color.b = 0; // GETESTET! Works
-                    //cloud_point->color.g = 0;
-                    //cloud_point->color.r = 1;
                 }
             }
 
@@ -980,9 +696,6 @@ void MapCloudDisplay::doPostProcessing(){
             cloud_infos_.insert(*iter);
 
         }
-
-
-
 
         //Disable after work is done
         doPostProzess_->blockSignals(true);
@@ -1010,7 +723,6 @@ void MapCloudDisplay::causeRetransform()
 
 void MapCloudDisplay::update( float wall_dt, float ros_dt )
 {
-    //std::cout << "void MapCloudDisplay::update" << std::endl;
 	rviz::PointCloud::RenderMode mode = (rviz::PointCloud::RenderMode) style_property_->getOptionInt();
 
 	if (needs_retransform_)
@@ -1134,63 +846,6 @@ void MapCloudDisplay::update( float wall_dt, float ros_dt )
             }
 		}
 	}
-
-    // ##################################################################
-    // ## Iterate through cloud to get min and max value
-    // ##################################################################
-
-//    std::map<int, CloudInfoPtr>::iterator it = cloud_infos_.begin();
-//    std::map<int, CloudInfoPtr>::iterator end = cloud_infos_.end();
-//    for (; it != end; ++it)
-//    {
-//        CloudInfoPtr cloud_info = it->second;
-
-
-//        sensor_msgs::PointCloud2 cloudMsg = *cloud_info->message_;
-//        pcl::PointCloud<pcl::PointXYZRGB> cloud;
-//        pcl::fromROSMsg(cloudMsg,cloud);
-
-//        //std::vector<rviz::PointCloud::Point> points = *cloud_info->transformed_points_;
-
-//            for(pcl::PointCloud<pcl::PointXYZRGB>::iterator it = cloud.begin(); it != cloud.end(); it++){
-//                //std::cout << (int)it->r << ", " << (int)it->g << ", " << (int)it->b << std::endl;
-//                //it->b = 173;
-//                //it->g = 180;
-//                //it->r = 62;
-//                it->b = 0;
-//                it->g = 0;
-//                it->r = 255;
-//                //std::cout << (int)it->r << ", " << (int)it->g << ", " << (int)it->b << std::endl;
-//            }
-
-//            pcl::toROSMsg(cloud,cloudMsg);
-//            //std::cout << it->first << std::endl;
-//            cloud_infos_[it->first] = cloud_info;
-//            //it->second = cloud_info;
-
-
-//            //cloud_info->cloud_.reset( new rviz::PointCloud() );
-//            //cloud_info->cloud_->addPoints( &(cloud_info->transformed_points_.front()), cloud_info->transformed_points_.size() );
-//            //cloud_info->cloud_->setRenderMode( mode );
-//            //cloud_info->cloud_->setAlpha( alpha_property_->getFloat() );
-//            //cloud_info->cloud_->setDimensions( size, size, size );
-//            //cloud_info->cloud_->setAutoSize(false);
-
-//            //cloud_info->manager_ = context_->getSceneManager();
-
-//            //cloud_info->scene_node_ = scene_node_->createChildSceneNode();
-
-//            //cloud_info->scene_node_->attachObject( cloud_info->cloud_.get() );
-//            //cloud_info->scene_node_->setVisible(false);
-
-//            //cloud_infos_.insert(*it);
-//    }
-//    needs_retransform_ = true;
-//    retransform();
-//    needs_retransform_ = false;
-
-
-
 
 	this->setStatusStd(rviz::StatusProperty::Ok, "Points", tr("%1").arg(totalPoints).toStdString());
 	this->setStatusStd(rviz::StatusProperty::Ok, "Nodes", tr("%1 shown of %2").arg(totalNodesShown).arg(cloud_infos_.size()).toStdString());

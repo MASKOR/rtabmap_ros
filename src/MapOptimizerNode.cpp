@@ -278,8 +278,7 @@ public:
 			rtabmap_ros::mapGraphToROS(optimizedPoses, mapIds, stamps, labels, userDatas, std::multimap<int, rtabmap::Link>(), mapCorrection, outputMsg.graph);
 			outputMsg.graph.links = msg->graph.links;
 			outputMsg.header = msg->header;
-			outputMsg.nodes = msg->nodes;
-            std::cout << "------------------------------------------------- MapOptimizerNode.cpp -------------------------------------------------" << std::endl;
+            outputMsg.nodes = msg->nodes;
 			mapDataPub_.publish(outputMsg);
 
 			ROS_INFO("Time graph optimization = %f s", timer.ticks());

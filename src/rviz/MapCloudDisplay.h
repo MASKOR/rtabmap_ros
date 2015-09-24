@@ -157,9 +157,7 @@ private:
 
 private:
 
-    bool blue; // ADDED  //For testing
-
-	ros::AsyncSpinner spinner_;
+    ros::AsyncSpinner spinner_;
 	ros::CallbackQueue cbqueue_;
 
 	std::map<int, CloudInfoPtr> cloud_infos_;

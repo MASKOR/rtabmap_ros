@@ -1069,7 +1069,6 @@ void CoreWrapper::depthCallback(
 	{
 		return;
 	}
-    //std::cout << "---------------- HELLO! I'm the depthCallback and got called! -------------------" << std::endl;
 	sensor_msgs::LaserScanConstPtr scanMsg; // Null
 	commonDepthCallback(odomMsg->header.frame_id, imageMsg, depthMsg, cameraInfoMsg, scanMsg);
 }
@@ -1085,7 +1084,6 @@ void CoreWrapper::thermalDepthCallback(
     {
         return;
     }
-    //std::cout << "---------------- HELLO! I'm the thermaldepthCallback and got called! -------------------" << std::endl;
     sensor_msgs::LaserScanConstPtr scanMsg; // Null
     commonThermalDepthCallback(odomMsg->header.frame_id, imageMsg, depthMsg, cameraInfoMsg, scanMsg, thermalMsg);
 }
@@ -1101,7 +1099,6 @@ void CoreWrapper::depthScanCallback(
 	{
 		return;
 	}
-    std::cout << "---------------- HELLO! I'm the depth->SCAN<-Callback and got called! -------------------" << std::endl;
 	commonDepthCallback(odomMsg->header.frame_id, imageMsg, depthMsg, cameraInfoMsg, scanMsg);
 }
 void CoreWrapper::stereoCallback(
@@ -1422,21 +1419,16 @@ void CoreWrapper::thermalProcess(
         std::vector<unsigned char> thermalArray;
         thermalArray.assign(thermal_Image.datastart, thermal_Image.dataend);
 
-        //Set all depth information to Zero where thermal image is black
-
         // ##################################################################
         // ## Set all depth information to Zero where thermal image is black
         // ##################################################################
-
-
         if (thermal_Image.type() == CV_8UC1){
             for (int y = 0; y < imageB.rows; y++)
             {
                 for (int x = 0; x < imageB.cols; x++)
                 {
                     if(thermal_Image.at<uchar>(y,x) == 0){
-                        imageB.at<short int>(y,x) = 0; //std::numeric_limits<double>::quiet_NaN();
-                        //std::cout << "Thermal Image is black here" << std::endl;
+                        imageB.at<short int>(y,x) = 0;
                     }
                 }
             }
@@ -1448,16 +1440,11 @@ void CoreWrapper::thermalProcess(
                     if(thermal_Image.at<cv::Vec3b>(y,x)[0] == 0 &&
                             thermal_Image.at<cv::Vec3b>(y,x)[1] == 0 &&
                             thermal_Image.at<cv::Vec3b>(y,x)[2] == 0){
-                        imageB.at<short int>(y,x) = 0; //std::numeric_limits<double>::quiet_NaN();
-                        //std::cout << "Thermal Image is black here" << std::endl;
+                        imageB.at<short int>(y,x) = 0;
                     }
                 }
             }
         }
-
-
-        //cv::imshow("imageB", imageB);
-        //cv::waitKey(30);
 
         SensorData data(scan,
                         scanMaxPts,
@@ -2048,7 +2035,6 @@ bool CoreWrapper::publishMapCallback(rtabmap_ros::PublishMap::Request& req, rtab
 				{
 					rtabmap_ros::nodeDataToROS(iter->second, msg->nodes[i++]);
 				}
-                std::cout << "------------------------------------------------- mapDataPub ONE in CoreWrapper.cpp -------------------------------------------------" << std::endl;
 				mapDataPub_.publish(msg);
 			}
 
@@ -2280,25 +2266,6 @@ void CoreWrapper::publishStats(const ros::Time & stamp)
 				msg->nodes.resize(1);
 				rtabmap_ros::nodeDataToROS(stats.getSignature(), msg->nodes[0]);
 
-//                int rows = 480, cols = 640;
-//                cv::Mat testImage = cv::Mat::zeros(rows,cols, CV_8UC1);
-//                int pixelPointer = 0;
-//                for (int y = 0; y < rows; y++)
-//                {
-//                    for (int x = 0; x < cols; x++)
-//                    {
-//                        testImage.at<uchar>(y,x) = msg->nodes[0].userData[pixelPointer];
-//                        pixelPointer = pixelPointer + 1;
-//                    }
-//                }
-
-//                msg->nodes[0].image = compressImage2(testImage,".jpg");
-
-                //msg->nodes[0].image = msg->nodes[0].depth;
-
-
-
-                //std::cout << "------------------------------------------------- mapDataPub TWO in CoreWrapper.cpp -------------------------------------------------" << std::endl;
 				mapDataPub_.publish(msg);
 			}
 

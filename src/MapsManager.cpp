@@ -219,7 +219,7 @@ std::map<int, rtabmap::Transform> MapsManager::updateMapCaches(
 									cloudRGB = util3d::cloudFromStereoImages(image, depth, cx, cy, fx, fy, cloudDecimation_);
 								}
 								else
-								{
+                                {
 									cloudRGB = util3d::cloudFromDepthRGB(image, depth, cx, cy, fx, fy, cloudDecimation_);
 								}
 

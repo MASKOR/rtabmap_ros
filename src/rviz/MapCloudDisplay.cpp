@@ -92,7 +92,7 @@ MapCloudDisplay::MapCloudDisplay()
 
 	style_property_ = new rviz::EnumProperty( "Style", "Flat Squares",
 										"Rendering mode to use, in order of computational complexity.",
-										this, SLOT( updateStyle() ), this );
+                                        this, SLOT( updateStyle() ), this );
 	style_property_->addOption( "Points", rviz::PointCloud::RM_POINTS );
 	style_property_->addOption( "Squares", rviz::PointCloud::RM_SQUARES );
 	style_property_->addOption( "Flat Squares", rviz::PointCloud::RM_FLAT_SQUARES );
@@ -172,6 +172,10 @@ MapCloudDisplay::MapCloudDisplay()
 											 "Download the optimized global graph (without cloud data) using rtabmap/GetMap service.",
 											 this, SLOT( downloadGraph() ), this );
 
+    doPostProzess_ = new rviz::BoolProperty( "Do post-process", false,
+                                             "Colores the map in a postprozessing stap.",
+                                             this, SLOT( doPostProcessing() ), this );
+
 	// PointCloudCommon sets up a callback queue with a thread for each
 	// instance.  Use that for processing incoming messages.
 	update_nh_.setCallbackQueue( &cbqueue_ );
@@ -245,7 +249,6 @@ void MapCloudDisplay::processMessage( const rtabmap_ros::MapDataConstPtr& msg )
 
 void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 {
-	// Add new clouds...
 	for(unsigned int i=0; i<map.nodes.size() && i<map.nodes.size(); ++i)
 	{
 		int id = map.nodes[i].id;
@@ -279,7 +282,7 @@ void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 						cloud = rtabmap::util3d::cloudFromStereoImages(image, depth, cx, cy, fx, fy, cloud_decimation_->getInt());
 					}
 					else
-					{
+                    {
 						cloud = rtabmap::util3d::cloudFromDepthRGB(image, depth, cx, cy, fx, fy, cloud_decimation_->getInt());
 					}
 					if(cloud_max_depth_->getFloat() > 0.0f)
@@ -318,6 +321,8 @@ void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 		}
 	}
 
+    //std::cout << map.graph.nodeIds.size() << " ";
+
 	// Update graph
 	std::map<int, rtabmap::Transform> poses;
 	for(unsigned int i=0; i<map.graph.nodeIds.size() && i<map.graph.poses.size(); ++i)
@@ -336,6 +341,13 @@ void MapCloudDisplay::processMapData(const rtabmap_ros::MapData& map)
 		boost::mutex::scoped_lock lock(current_map_mutex_);
 		current_map_ = poses;
 	}
+
+    // ##########################################
+    // ## Calc needed time
+    // ##########################################
+    //std::cout << map.graph.nodeIds.size() << std::endl;
+    double duration = map.graph.stamps[map.graph.stamps.size()-1] - map.graph.stamps[0];
+    std::cout << "For a map out of " << map.graph.stamps.size() << " Pointclouds, it took " << duration << " seconds." << std::endl;
 }
 
 void MapCloudDisplay::setPropertiesHidden( const QList<Property*>& props, bool hide )
@@ -581,6 +593,129 @@ void MapCloudDisplay::downloadGraph()
 	}
 }
 
+void MapCloudDisplay::doPostProcessing(){
+
+    ros::Time start = ros::Time::now();
+
+    rviz::PointCloud::RenderMode mode = (rviz::PointCloud::RenderMode) style_property_->getOptionInt();
+
+    float size;
+    if( mode == rviz::PointCloud::RM_POINTS ) {
+        size = point_pixel_size_property_->getFloat();
+    } else {
+        size = point_world_size_property_->getFloat();
+    }
+
+    if(doPostProzess_->getBool())
+    {
+        double matSize = 0;
+
+        //Get the number of all points
+        for(std::map<int, CloudInfoPtr>::iterator iter = cloud_infos_.begin(); iter!=cloud_infos_.end(); ++iter)
+        {
+
+            CloudInfoPtr cloud_info = iter->second;
+
+            rviz::V_PointCloudPoint& cloud_points = cloud_info->transformed_points_;
+
+            matSize = matSize + cloud_points.size();
+        }
+
+        cv::Mat cloudMat = cv::Mat::zeros(matSize,1, CV_32FC3);
+
+        double matIterator = 0;
+
+        for(std::map<int, CloudInfoPtr>::iterator iter = cloud_infos_.begin(); iter!=cloud_infos_.end(); ++iter)
+        {
+
+            CloudInfoPtr cloud_info = iter->second;
+
+            rviz::V_PointCloudPoint& cloud_points = cloud_info->transformed_points_;
+
+            for (rviz::V_PointCloudPoint::iterator cloud_point = cloud_points.begin(); cloud_point != cloud_points.end(); ++cloud_point)
+            {
+                if (rviz::validateFloats(cloud_point->position))
+                {
+                    int i = std::distance( cloud_points.begin(), cloud_point );
+                    cloudMat.at<cv::Vec3f>(i+matIterator,1)[0] = cloud_point->color.b;
+                    cloudMat.at<cv::Vec3f>(i+matIterator,1)[1] = cloud_point->color.g;
+                    cloudMat.at<cv::Vec3f>(i+matIterator,1)[2] = cloud_point->color.r;
+                }
+            }
+
+            matIterator = matIterator + cloud_points.size();
+        }
+
+        cv::Mat cloudMatBytes;
+
+        cv::normalize(cloudMat, cloudMatBytes, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+        cv::applyColorMap(cloudMatBytes, cloudMatBytes, cv::COLORMAP_JET);
+
+        cloudMatBytes.convertTo(cloudMat,CV_32FC3,1./255.);
+
+        //Reset iterator
+        matIterator = 0;
+
+        for(std::map<int, CloudInfoPtr>::iterator iter = cloud_infos_.begin(); iter!=cloud_infos_.end(); ++iter)
+        {
+
+            CloudInfoPtr cloud_info = iter->second;
+
+            rviz::V_PointCloudPoint& cloud_points = cloud_info->transformed_points_;
+
+            for (rviz::V_PointCloudPoint::iterator cloud_point = cloud_points.begin(); cloud_point != cloud_points.end(); ++cloud_point)
+            {
+                if (rviz::validateFloats(cloud_point->position))
+                {
+                    int i = std::distance( cloud_points.begin(), cloud_point );
+                    cloud_point->color.b = cloudMat.at<cv::Vec3f>(i+matIterator,1)[0];
+                    cloud_point->color.g = cloudMat.at<cv::Vec3f>(i+matIterator,1)[1];
+                    cloud_point->color.r = cloudMat.at<cv::Vec3f>(i+matIterator,1)[2];
+
+                }
+            }
+
+            matIterator = matIterator + cloud_points.size();
+
+
+            cloud_info->cloud_.reset( new rviz::PointCloud() );
+            cloud_info->cloud_->addPoints( &(cloud_points.front()), cloud_points.size() );
+            cloud_info->cloud_->setRenderMode( mode );
+            cloud_info->cloud_->setAlpha( alpha_property_->getFloat() );
+            cloud_info->cloud_->setDimensions( size, size, size );
+            cloud_info->cloud_->setAutoSize(false);
+
+            cloud_info->manager_ = context_->getSceneManager();
+
+            cloud_info->scene_node_ = scene_node_->createChildSceneNode();
+
+            cloud_info->scene_node_->attachObject( cloud_info->cloud_.get() );
+            cloud_info->scene_node_->setVisible(false);
+
+            cloud_infos_.insert(*iter);
+
+        }
+
+        //Disable after work is done
+        doPostProzess_->blockSignals(true);
+        doPostProzess_->setBool(false);
+        doPostProzess_->blockSignals(false);
+    }
+    else
+    {
+        // just stay true if double-clicked on DownloadGraph property, let the
+        // first process above finishes
+        //doPostProzess_->blockSignals(true);
+        //doPostProzess_->setBool(true);
+        //doPostProzess_->blockSignals(false);
+    }
+
+    ros::Time end = ros::Time::now();
+
+    std::cout << "It took " << end-start << " seconds to do post-processing." << std::endl;
+}
+
 void MapCloudDisplay::causeRetransform()
 {
   needs_retransform_ = true;
@@ -627,7 +762,7 @@ void MapCloudDisplay::update( float wall_dt, float ros_dt )
 				cloud_info->scene_node_->attachObject( cloud_info->cloud_.get() );
 				cloud_info->scene_node_->setVisible(false);
 
-				cloud_infos_.insert(*it);
+                cloud_infos_.insert(*it);
 			}
 
 			new_cloud_infos_.clear();
@@ -708,7 +843,7 @@ void MapCloudDisplay::update( float wall_dt, float ros_dt )
 				{
 					iter->second->scene_node_->setVisible(false);
 				}
-			}
+            }
 		}
 	}
 

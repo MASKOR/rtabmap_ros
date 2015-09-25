@@ -103,6 +103,16 @@ private:
 				const sensor_msgs::CameraInfoConstPtr& leftCamInfoMsg,
 				const sensor_msgs::CameraInfoConstPtr& rightCamInfoMsg,
 				const sensor_msgs::LaserScanConstPtr& scanMsg);
+    // ##########################################
+    // ## For thermal callback
+    // ##########################################
+    void commonThermalDepthCallback(
+            const std::string & odomFrameId,
+            const sensor_msgs::ImageConstPtr& imageMsg,
+            const sensor_msgs::ImageConstPtr& imageDepthMsg,
+            const sensor_msgs::CameraInfoConstPtr& camInfoMsg,
+            const sensor_msgs::LaserScanConstPtr& scanMsg,
+            const sensor_msgs::ImageConstPtr& imageThermalMsg);
 
 	// with odom msg
 	void depthCallback(
@@ -110,6 +120,15 @@ private:
 			const nav_msgs::OdometryConstPtr & odomMsg,
 			const sensor_msgs::ImageConstPtr& imageDepthMsg,
 			const sensor_msgs::CameraInfoConstPtr& camInfoMsg);
+    // ##########################################
+    // ## For thermal callback
+    // ##########################################
+    void thermalDepthCallback(
+            const sensor_msgs::ImageConstPtr& imageMsg,
+            const nav_msgs::OdometryConstPtr & odomMsg,
+            const sensor_msgs::ImageConstPtr& imageDepthMsg,
+            const sensor_msgs::CameraInfoConstPtr& camInfoMsg,
+            const sensor_msgs::ImageConstPtr& imageThermalMsg);
 	void depthScanCallback(
 			const sensor_msgs::ImageConstPtr& imageMsg,
 			const nav_msgs::OdometryConstPtr & odomMsg,
@@ -173,6 +192,27 @@ private:
 			const rtabmap::Transform & localTransform = rtabmap::Transform(),
 			const cv::Mat & scan = cv::Mat(),
 			int scanMaxPts = 0);
+
+    // ##########################################
+    // ## For thermal processing
+    // ##########################################
+    void thermalProcess(
+            int id,
+            const ros::Time & stamp,
+            const cv::Mat & image,
+            const cv::Mat & thermalImage,
+            const rtabmap::Transform & odom = rtabmap::Transform(),
+            const std::string & odomFrameId = "",
+            float odomRotationalVariance = 1.0f,
+            float odomTransitionalVariance = 1.0f,
+            const cv::Mat & depthOrRightImage = cv::Mat(),
+            float fx = 0.0f,
+            float fyOrBaseline = 0.0f,
+            float cx = 0.0f,
+            float cy = 0.0f,
+            const rtabmap::Transform & localTransform = rtabmap::Transform(),
+            const cv::Mat & scan = cv::Mat(),
+            int scanMaxPts = 0);
 
 	bool updateRtabmapCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 	bool resetRtabmapCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
@@ -250,6 +290,10 @@ private:
 	image_transport::SubscriberFilter imageSub_;
 	image_transport::SubscriberFilter imageDepthSub_;
 	message_filters::Subscriber<sensor_msgs::CameraInfo> cameraInfoSub_;
+    // ##########################################
+    // ## For depth+thermal callback
+    // ##########################################
+    image_transport::SubscriberFilter thermalSub_;
 
 	//stereo callback
 	image_transport::SubscriberFilter imageRectLeft_;
@@ -274,6 +318,17 @@ private:
 			sensor_msgs::Image,
 			sensor_msgs::CameraInfo> MyDepthSyncPolicy;
 	message_filters::Synchronizer<MyDepthSyncPolicy> * depthSync_;
+
+    // ##########################################
+    // ## For depth+thermal callback
+    // ##########################################
+    typedef message_filters::sync_policies::ApproximateTime<
+            sensor_msgs::Image,
+            nav_msgs::Odometry,
+            sensor_msgs::Image,
+            sensor_msgs::CameraInfo,
+            sensor_msgs::Image> MyDepthThermalSyncPolicy;
+    message_filters::Synchronizer<MyDepthThermalSyncPolicy> * thermalDepthSync_;
 
 	typedef message_filters::sync_policies::ApproximateTime<
 			sensor_msgs::Image,

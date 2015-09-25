@@ -112,6 +112,7 @@ public:
 	rviz::FloatProperty* node_filtering_angle_;
 	rviz::BoolProperty* download_map_;
 	rviz::BoolProperty* download_graph_;
+    rviz::BoolProperty* doPostProzess_;
 
 public Q_SLOTS:
 	void causeRetransform();
@@ -127,6 +128,7 @@ private Q_SLOTS:
 	void updateCloudParameters();
 	void downloadMap();
 	void downloadGraph();
+    void doPostProcessing();
 
 protected:
 	/** @brief Do initialization. Overridden from MessageFilterDisplay. */
@@ -154,7 +156,8 @@ private:
 	void fillTransformerOptions( rviz::EnumProperty* prop, uint32_t mask );
 
 private:
-	ros::AsyncSpinner spinner_;
+
+    ros::AsyncSpinner spinner_;
 	ros::CallbackQueue cbqueue_;
 
 	std::map<int, CloudInfoPtr> cloud_infos_;

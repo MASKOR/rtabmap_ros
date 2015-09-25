@@ -66,6 +66,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rtabmap_ros/MsgConversion.h"
 
+#include "rtabmap/core/Compression.h"
+
 using namespace rtabmap;
 
 float max3( const float& a, const float& b, const float& c)
@@ -174,14 +176,6 @@ CoreWrapper::CoreWrapper(bool deleteDbOnStart) :
 
 	configPath_ = uReplaceChar(configPath_, '~', UDirectory::homeDir());
 	databasePath_ = uReplaceChar(databasePath_, '~', UDirectory::homeDir());
-	if(configPath_.size() && configPath_.at(0) != '/')
-	{
-		configPath_ = UDirectory::currentDir(true) + configPath_;
-	}
-	if(databasePath_.size() && databasePath_.at(0) != '/')
-	{
-		databasePath_ = UDirectory::currentDir(true) + databasePath_;
-	}
 
 	// load parameters
 	parameters_ = loadParameters(configPath_);
@@ -324,14 +318,7 @@ CoreWrapper::CoreWrapper(bool deleteDbOnStart) :
 		}
 	}
 
-	if(databasePath_.size())
-	{
-		ROS_INFO("rtabmap: Using database from \"%s\".", databasePath_.c_str());
-	}
-	else
-	{
-		ROS_INFO("rtabmap: database_path parameter not set, the map will not be saved.");
-	}
+	ROS_INFO("rtabmap: Using database from \"%s\".", databasePath_.c_str());
 
 	// Init RTAB-Map
 	rtabmap_.init(parameters_, databasePath_);
@@ -665,15 +652,18 @@ Transform CoreWrapper::getTransform(const std::string & fromFrameId, const std::
 	return localTransform;
 }
 
-void CoreWrapper::commonDepthCallback(
+// ##########################################
+// ## For thermal callback
+// ##########################################
+void CoreWrapper::commonThermalDepthCallback(
 		const std::string & odomFrameId,
 		const sensor_msgs::ImageConstPtr& imageMsg,
 		const sensor_msgs::ImageConstPtr& depthMsg,
 		const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
-		const sensor_msgs::LaserScanConstPtr& scanMsg)
+        const sensor_msgs::LaserScanConstPtr& scanMsg,
+        const sensor_msgs::ImageConstPtr& thermalMsg)
 {
-	if(!(imageMsg->encoding.compare(sensor_msgs::image_encodings::TYPE_8UC1) == 0 ||
-			imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) ==0 ||
+	if(!(imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) ==0 ||
 			imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO16) ==0 ||
 			imageMsg->encoding.compare(sensor_msgs::image_encodings::BGR8) == 0 ||
 			imageMsg->encoding.compare(sensor_msgs::image_encodings::RGB8) == 0) ||
@@ -754,11 +744,7 @@ void CoreWrapper::commonDepthCallback(
 	}
 
 	cv_bridge::CvImageConstPtr ptrImage;
-	if(imageMsg, imageMsg->encoding.compare(sensor_msgs::image_encodings::TYPE_8UC1)==0)
-	{
-		ptrImage = cv_bridge::toCvShare(imageMsg);
-	}
-	else if(imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) == 0 ||
+	if(imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) == 0 ||
 	   imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO16) == 0)
 	{
 		ptrImage = cv_bridge::toCvShare(imageMsg, "mono8");
@@ -769,6 +755,27 @@ void CoreWrapper::commonDepthCallback(
 	}
 	cv_bridge::CvImageConstPtr ptrDepth = cv_bridge::toCvShare(depthMsg);
 
+    // ##########################################
+    // ## Get the thermal image
+    // ##########################################
+    cv_bridge::CvImageConstPtr imageThermalPtr;
+    if(thermalMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) == 0)
+    {
+        imageThermalPtr = cv_bridge::toCvShare(thermalMsg, "mono8");
+    }
+    else
+    {
+        imageThermalPtr = cv_bridge::toCvShare(thermalMsg, "bgr8");
+    }
+
+
+    //cv_bridge::CvImageConstPtr imageThermalPtr = cv_bridge::toCvShare(thermalMsg, "mono8");
+    //cv::Mat thermal_Image;
+    //thermal_Image = imageThermalPtr->image.clone();
+
+//    cv::imshow("Thermal", thermal_Image);
+//    cv::waitKey(30);
+
 	image_geometry::PinholeCameraModel model;
 	model.fromCameraInfo(*cameraInfoMsg);
 	float fx = model.fx();
@@ -776,23 +783,150 @@ void CoreWrapper::commonDepthCallback(
 	float cx = model.cx();
 	float cy = model.cy();
 
-	process(ptrImage->header.seq,
-			scanMsg.get() != 0?scanMsg->header.stamp:ptrDepth->header.stamp,
-			ptrImage->image,
-			lastPose_,
-			odomFrameId,
-			rotVariance_>0?rotVariance_:1.0f,
-			transVariance_>0?transVariance_:1.0f,
-			ptrDepth->image,
-			fx,
-			fy,
-			cx,
-			cy,
-			localTransform,
-			scan,
-			scanMsg.get() != 0?(int)scanMsg->ranges.size():0);
-	rotVariance_ = 0;
-	transVariance_ = 0;
+    thermalProcess(ptrImage->header.seq,
+                   scanMsg.get() != 0?scanMsg->header.stamp:ptrDepth->header.stamp,
+                   ptrImage->image,
+                   imageThermalPtr->image,
+                   lastPose_,
+                   odomFrameId,
+                   rotVariance_>0?rotVariance_:1.0f,
+                   transVariance_>0?transVariance_:1.0f,
+                   ptrDepth->image,
+                   fx,
+                   fy,
+                   cx,
+                   cy,
+                   localTransform,
+                   scan,
+                   scanMsg.get() != 0?(int)scanMsg->ranges.size():0);
+    rotVariance_ = 0;
+    transVariance_ = 0;
+
+}
+
+void CoreWrapper::commonDepthCallback(
+        const std::string & odomFrameId,
+        const sensor_msgs::ImageConstPtr& imageMsg,
+        const sensor_msgs::ImageConstPtr& depthMsg,
+        const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
+        const sensor_msgs::LaserScanConstPtr& scanMsg)
+{
+    if(!(imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) ==0 ||
+            imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO16) ==0 ||
+            imageMsg->encoding.compare(sensor_msgs::image_encodings::BGR8) == 0 ||
+            imageMsg->encoding.compare(sensor_msgs::image_encodings::RGB8) == 0) ||
+        !(depthMsg->encoding.compare(sensor_msgs::image_encodings::TYPE_16UC1) == 0 ||
+         depthMsg->encoding.compare(sensor_msgs::image_encodings::TYPE_32FC1) == 0 ||
+         depthMsg->encoding.compare(sensor_msgs::image_encodings::MONO16) == 0))
+    {
+        ROS_ERROR("Input type must be image=mono8,mono16,rgb8,bgr8 and image_depth=32FC1,16UC1,mono16");
+        return;
+    }
+
+    //for sync transform
+    Transform odomT = getTransform(odomFrameId, frameId_, lastPoseStamp_);
+    if(odomT.isNull() && !odomFrameId_.empty())
+    {
+        ROS_WARN("Could not get TF transform from %s to %s, sensors will not be synchronized with odometry pose.",
+                odomFrameId.c_str(), frameId_.c_str());
+    }
+
+    Transform localTransform = getTransform(frameId_, depthMsg->header.frame_id, depthMsg->header.stamp);
+    if(localTransform.isNull())
+    {
+        return;
+    }
+    // sync with odometry stamp
+    if(lastPoseStamp_ != depthMsg->header.stamp)
+    {
+        if(!odomT.isNull())
+        {
+            Transform sensorT = getTransform(odomFrameId, frameId_, depthMsg->header.stamp);
+            if(sensorT.isNull())
+            {
+                return;
+            }
+            localTransform = odomT.inverse() * sensorT * localTransform;
+        }
+    }
+
+    cv::Mat scan;
+    if(scanMsg.get() != 0)
+    {
+        // make sure the frame of the laser is updated too
+        if(getTransform(frameId_, scanMsg->header.frame_id, scanMsg->header.stamp).isNull())
+        {
+            return;
+        }
+
+        // set maps manager laser scan range parameter
+        mapsManager_.setLaserScanParameters(
+                scanMsg->range_max,
+                scanMsg->angle_min,
+                scanMsg->angle_max,
+                scanMsg->angle_increment);
+
+        //transform in frameId_ frame
+        sensor_msgs::PointCloud2 scanOut;
+        laser_geometry::LaserProjection projection;
+        projection.transformLaserScanToPointCloud(frameId_, *scanMsg, scanOut, tfListener_);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr pclScan(new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::fromROSMsg(scanOut, *pclScan);
+
+        // sync with odometry stamp
+        if(lastPoseStamp_ != scanMsg->header.stamp)
+        {
+            if(!odomT.isNull())
+            {
+                Transform sensorT = getTransform(odomFrameId, frameId_, scanMsg->header.stamp);
+                if(sensorT.isNull())
+                {
+                    return;
+                }
+                Transform t = odomT.inverse() * sensorT;
+                pclScan = util3d::transformPointCloud(pclScan, t);
+
+            }
+        }
+        scan = util3d::laserScanFromPointCloud(*pclScan);
+    }
+
+    cv_bridge::CvImageConstPtr ptrImage;
+    if(imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO8) == 0 ||
+       imageMsg->encoding.compare(sensor_msgs::image_encodings::MONO16) == 0)
+    {
+        ptrImage = cv_bridge::toCvShare(imageMsg, "mono8");
+    }
+    else
+    {
+        ptrImage = cv_bridge::toCvShare(imageMsg, "bgr8");
+    }
+    cv_bridge::CvImageConstPtr ptrDepth = cv_bridge::toCvShare(depthMsg);
+
+    image_geometry::PinholeCameraModel model;
+    model.fromCameraInfo(*cameraInfoMsg);
+    float fx = model.fx();
+    float fy = model.fy();
+    float cx = model.cx();
+    float cy = model.cy();
+
+    process(ptrImage->header.seq,
+            scanMsg.get() != 0?scanMsg->header.stamp:ptrDepth->header.stamp,
+            ptrImage->image,
+            lastPose_,
+            odomFrameId,
+            rotVariance_>0?rotVariance_:1.0f,
+            transVariance_>0?transVariance_:1.0f,
+            ptrDepth->image,
+            fx,
+            fy,
+            cx,
+            cy,
+            localTransform,
+            scan,
+            scanMsg.get() != 0?(int)scanMsg->ranges.size():0);
+    rotVariance_ = 0;
+    transVariance_ = 0;
 }
 
 void CoreWrapper::commonStereoCallback(
@@ -935,10 +1069,25 @@ void CoreWrapper::depthCallback(
 	{
 		return;
 	}
-
 	sensor_msgs::LaserScanConstPtr scanMsg; // Null
 	commonDepthCallback(odomMsg->header.frame_id, imageMsg, depthMsg, cameraInfoMsg, scanMsg);
 }
+
+void CoreWrapper::thermalDepthCallback(
+        const sensor_msgs::ImageConstPtr& imageMsg,
+        const nav_msgs::OdometryConstPtr & odomMsg,
+        const sensor_msgs::ImageConstPtr& depthMsg,
+        const sensor_msgs::CameraInfoConstPtr& cameraInfoMsg,
+        const sensor_msgs::ImageConstPtr& thermalMsg)
+{
+    if(!commonOdomUpdate(odomMsg))
+    {
+        return;
+    }
+    sensor_msgs::LaserScanConstPtr scanMsg; // Null
+    commonThermalDepthCallback(odomMsg->header.frame_id, imageMsg, depthMsg, cameraInfoMsg, scanMsg, thermalMsg);
+}
+
 void CoreWrapper::depthScanCallback(
 		const sensor_msgs::ImageConstPtr& imageMsg,
 		const nav_msgs::OdometryConstPtr & odomMsg,
@@ -1092,7 +1241,7 @@ void CoreWrapper::process(
 			}
 		}
 
-		SensorData data(scan,
+        SensorData data(scan,
 				scanMaxPts,
 				image.clone(),
 				imageB,
@@ -1203,6 +1352,212 @@ void CoreWrapper::process(
 				 "when you need to have IDs output of RTAB-map synchronised with the source "
 				 "image sequence ID.");
 	}
+}
+
+// ##########################################
+// ## For thermal processing
+// ##########################################
+void CoreWrapper::thermalProcess(
+        int id,
+        const ros::Time & stamp,
+        const cv::Mat & image,
+        const cv::Mat & thermalImage,
+        const Transform & odom,
+        const std::string & odomFrameId,
+        float odomRotationalVariance,
+        float odomTransitionalVariance,
+        const cv::Mat & depthOrRightImage,
+        float fx,
+        float fyOrBaseline,
+        float cx,
+        float cy,
+        const Transform & localTransform,
+        const cv::Mat & scan,
+        int scanMaxPts)
+{
+    UTimer timer;
+    if(rtabmap_.isIDsGenerated() || id > 0)
+    {
+        double timeRtabmap = 0.0;
+        cv::Mat imageB;
+        if(!depthOrRightImage.empty())
+        {
+            if(depthOrRightImage.type() == CV_8UC1)
+            {
+                //right image
+                imageB = depthOrRightImage.clone();
+            }
+            else if(depthOrRightImage.type() != CV_16UC1)
+            {
+                // depth float
+                if(depthOrRightImage.type() == CV_32FC1)
+                {
+                    //convert to 16 bits
+                    imageB = util3d::cvtDepthFromFloat(depthOrRightImage);
+                    static bool shown = false;
+                    if(!shown)
+                    {
+                        ROS_WARN("Use depth image with \"unsigned short\" type to "
+                                 "avoid conversion. This message is only printed once...");
+                        shown = true;
+                    }
+                }
+                else
+                {
+                    ROS_ERROR("Depth image must be of type \"unsigned short\"!");
+                    return;
+                }
+            }
+            else
+            {
+                // depth short
+                imageB = depthOrRightImage.clone();
+            }
+        }
+
+        cv::Mat thermal_Image = thermalImage.clone();
+        std::vector<unsigned char> thermalArray;
+        thermalArray.assign(thermal_Image.datastart, thermal_Image.dataend);
+
+        // ##################################################################
+        // ## Set all depth information to Zero where thermal image is black
+        // ##################################################################
+        if (thermal_Image.type() == CV_8UC1){
+            for (int y = 0; y < imageB.rows; y++)
+            {
+                for (int x = 0; x < imageB.cols; x++)
+                {
+                    if(thermal_Image.at<uchar>(y,x) == 0){
+                        imageB.at<short int>(y,x) = 0;
+                    }
+                }
+            }
+        }else {
+            for (int y = 0; y < imageB.rows; y++)
+            {
+                for (int x = 0; x < imageB.cols; x++)
+                {
+                    if(thermal_Image.at<cv::Vec3b>(y,x)[0] == 0 &&
+                            thermal_Image.at<cv::Vec3b>(y,x)[1] == 0 &&
+                            thermal_Image.at<cv::Vec3b>(y,x)[2] == 0){
+                        imageB.at<short int>(y,x) = 0;
+                    }
+                }
+            }
+        }
+
+        SensorData data(scan,
+                        scanMaxPts,
+                        image.clone(),
+                        imageB,
+                        fx,
+                        fyOrBaseline,
+                        cx,
+                        cy,
+                        localTransform,
+                        odom,
+                        odomRotationalVariance,
+                        odomTransitionalVariance,
+                        id,
+                        rtabmap_ros::timestampFromROS(stamp),
+                        thermalArray);
+
+        if(rtabmap_.process(data))
+        {
+            timeRtabmap = timer.ticks();
+            mapToOdomMutex_.lock();
+            mapToOdom_ = rtabmap_.getMapCorrection();
+            odomFrameId_ = odomFrameId;
+            mapToOdomMutex_.unlock();
+
+            // Publish local graph, info
+            this->publishStats(stamp);
+            std::map<int, rtabmap::Transform> filteredPoses;
+
+            filteredPoses = mapsManager_.updateMapCaches(
+                    rtabmap_.getLocalOptimizedPoses(),
+                    rtabmap_.getMemory(),
+                    false,
+                    false,
+                    false);
+            mapsManager_.publishMaps(filteredPoses, stamp, mapFrameId_);
+
+            // update goal if planning is enabled
+            if(!currentMetricGoal_.isNull())
+            {
+                if(rtabmap_.getPath().size() == 0)
+                {
+                    // Goal reached
+                    ROS_INFO("Planning: Publishing goal reached!");
+                    if(goalReachedPub_.getNumSubscribers())
+                    {
+                        std_msgs::Bool result;
+                        result.data = true;
+                        goalReachedPub_.publish(result);
+                    }
+                    currentMetricGoal_.setNull();
+                    latestNodeWasReached_ = false;
+                }
+                else
+                {
+                    currentMetricGoal_ = rtabmap_.getPose(rtabmap_.getPathCurrentGoalId());
+                    if(!currentMetricGoal_.isNull())
+                    {
+                        // Adjust the target pose relative to last node
+                        if(rtabmap_.getPathCurrentGoalId() == rtabmap_.getPath().back().first && rtabmap_.getLocalOptimizedPoses().size())
+                        {
+                            if(latestNodeWasReached_ ||
+                               rtabmap_.getLocalOptimizedPoses().rbegin()->second.getDistance(currentMetricGoal_) < rtabmap_.getGoalReachedRadius() ||
+                               rtabmap_.getPathTransformToGoal().getNorm() < rtabmap_.getGoalReachedRadius())
+                            {
+                                latestNodeWasReached_ = true;
+                                currentMetricGoal_ *= rtabmap_.getPathTransformToGoal();
+                            }
+                        }
+
+                        // publish next goal with updated currentMetricGoal_
+                        publishCurrentGoal(stamp);
+
+                        // publish local path
+                        publishLocalPath(stamp);
+                    }
+                    else
+                    {
+                        ROS_ERROR("Planning: Local map broken, current goal id=%d (the robot may have moved to far from planned nodes)",
+                                rtabmap_.getPathCurrentGoalId());
+                        rtabmap_.clearPath();
+                        if(goalReachedPub_.getNumSubscribers())
+                        {
+                            std_msgs::Bool result;
+                            result.data = false;
+                            goalReachedPub_.publish(result);
+                        }
+                        currentMetricGoal_.setNull();
+                        latestNodeWasReached_ = false;
+                    }
+                }
+            }
+        }
+        else
+        {
+            timeRtabmap = timer.ticks();
+        }
+        ROS_INFO("rtabmap: Rate=%.2fs, Limit=%.3fs, RTAB-Map=%.4fs, Pub=%.4fs (local map=%d, WM=%d)",
+                rate_>0?1.0f/rate_:0,
+                rtabmap_.getTimeThreshold()/1000.0f,
+                timeRtabmap,
+                timer.ticks(),
+                (int)rtabmap_.getLocalOptimizedPoses().size(),
+                rtabmap_.getWMSize()+rtabmap_.getSTMSize());
+    }
+    else if(!rtabmap_.isIDsGenerated())
+    {
+        ROS_WARN("Ignoring received image because its sequence ID=0. Please "
+                 "set \"Mem/GenerateIds\"=\"true\" to ignore ros generated sequence id. "
+                 "Use only \"Mem/GenerateIds\"=\"false\" for once-time run of RTAB-Map and "
+                 "when you need to have IDs output of RTAB-map synchronised with the source "
+                 "image sequence ID.");
+    }
 }
 
 void CoreWrapper::goalCommonCallback(const std::vector<std::pair<int, Transform> > & poses)
@@ -1680,7 +2035,6 @@ bool CoreWrapper::publishMapCallback(rtabmap_ros::PublishMap::Request& req, rtab
 				{
 					rtabmap_ros::nodeDataToROS(iter->second, msg->nodes[i++]);
 				}
-
 				mapDataPub_.publish(msg);
 			}
 
@@ -2208,12 +2562,20 @@ void CoreWrapper::setupCallbacks(
 		image_transport::TransportHints hintsRgb("raw", ros::TransportHints(), rgb_pnh);
 		image_transport::TransportHints hintsDepth("raw", ros::TransportHints(), depth_pnh);
 
+        // ##########################################
+        // ## For thermal callback
+        // ##########################################
+        ros::NodeHandle thermal_nh(nh, "thermal");
+        image_transport::ImageTransport thermal_it(thermal_nh);
+        thermalSub_.subscribe(thermal_it,"/flir_camera/mapped/image", 1);
+
 		imageSub_.subscribe(rgb_it, rgb_nh.resolveName("image"), 1, hintsRgb);
 		imageDepthSub_.subscribe(depth_it, depth_nh.resolveName("image"), 1, hintsDepth);
 		cameraInfoSub_.subscribe(rgb_nh, "camera_info", 1);
 
 		if(odomFrameId_.empty())
 		{
+                        ROS_INFO("With odom msg...");
 			odomSub_.subscribe(nh, "odom", 1);
 			if(subscribeLaserScan)
 			{
@@ -2232,9 +2594,16 @@ void CoreWrapper::setupCallbacks(
 			}
 			else //!subscribeLaserScan
 			{
-				ROS_INFO("Registering Depth callback...");
-				depthSync_ = new message_filters::Synchronizer<MyDepthSyncPolicy>(MyDepthSyncPolicy(queueSize), imageSub_, odomSub_, imageDepthSub_, cameraInfoSub_);
-				depthSync_->registerCallback(boost::bind(&CoreWrapper::depthCallback, this, _1, _2, _3, _4));
+                //ROS_INFO("Registering Depth callback...");
+                //depthSync_ = new message_filters::Synchronizer<MyDepthSyncPolicy>(MyDepthSyncPolicy(queueSize), imageSub_, odomSub_, imageDepthSub_, cameraInfoSub_);
+                //depthSync_->registerCallback(boost::bind(&CoreWrapper::depthCallback, this, _1, _2, _3, _4));
+
+                // ##########################################
+                // ## For thermal callback
+                // ##########################################
+                ROS_INFO("Registering Depth+Thermal callback...");
+                thermalDepthSync_ = new message_filters::Synchronizer<MyDepthThermalSyncPolicy>(MyDepthThermalSyncPolicy(queueSize), imageSub_, odomSub_, imageDepthSub_, cameraInfoSub_, thermalSub_);
+                thermalDepthSync_->registerCallback(boost::bind(&CoreWrapper::thermalDepthCallback, this, _1, _2, _3, _4, _5));
 
 				ROS_INFO("\n%s subscribed to:\n   %s,\n   %s,\n   %s,\n   %s",
 						ros::this_node::getName().c_str(),
@@ -2247,6 +2616,7 @@ void CoreWrapper::setupCallbacks(
 		else
 		{
 			// use odom from TF, so subscribe to sensors only
+                        ROS_INFO("With odom from TF...");
 			if(subscribeLaserScan)
 			{
 				scanSub_.subscribe(nh, "scan", 1);
